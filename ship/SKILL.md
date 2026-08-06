@@ -101,9 +101,29 @@ gh pr view --json url,number,state 2>/dev/null
 
 - **No PR**: invoke `/pr` directly (no question). `/pr` handles description,
   assignee, and Jira transition.
-- **PR exists, open**: report the URL. If the push addressed review feedback,
-  suggest `/resolve-pr-threads <PR#>`.
+- **PR exists, open**: report the URL, then run Step 6.
 - **PR exists, closed/merged**: report and stop.
+
+## Step 6 — Answer and resolve the threads the push addressed
+
+Part of `/ship`, not a follow-up to suggest. Do it without being asked, in the
+same turn as the push.
+
+1. Fetch the unresolved threads (`isResolved == false`) via GraphQL, keeping
+   each thread's `id` and its first comment's `databaseId`.
+2. For every thread the pushed commits address, reply **in-thread** with
+   `gh api repos/<owner>/<repo>/pulls/<PR#>/comments -f body="..." -F in_reply_to=<databaseId>`
+   — never a top-level comment. Prefix the body with `🤖`. Use
+   `--body-file`/`"$(cat file)"` rather than inline escapes.
+3. Resolve each of those threads:
+   `gh api graphql -f query='mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }' -f threadId=<id>`
+
+The reply carries the reasoning, especially when the fix **deviates** from what
+the reviewer suggested — cite the `path:line` evidence that justified the
+deviation. A commit message is not a reply; the reviewer reads the thread.
+
+Only touch threads this push actually addresses. Leave the rest unresolved and
+list them in the final report so the user knows what's still open.
 
 ### Cross-link related front/back PRs
 
