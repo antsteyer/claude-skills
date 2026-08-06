@@ -14,6 +14,8 @@ description: >-
 
 **Analysis only. No file edits, no commits, no posted comments, no thread resolution, no worktree.** The single deliverable is a written point-by-point analysis for the user to read. Output language: **French** (the user's working language).
 
+Sibling skill: `/walk-pr-feedback` handles the feedback interactively (fixes, commits, replies, resolution). Use this one when the user wants the overview, that one when they want the work done.
+
 ## Step 1 — Identify the PR
 
 If a PR number was passed as argument, use it. Otherwise detect from the current branch:
