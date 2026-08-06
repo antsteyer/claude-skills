@@ -103,6 +103,12 @@ De-duplicate: the same point raised inline and in a review body is **one** item.
 
 If nothing is unresolved across the three sources, report it and stop.
 
+**Persist the deduplicated feedback** to `<scratchpad>/pr-<PR#>-feedback.json`, one
+entry per point: index, source, `path`, `line`, thread `id`, comment `databaseId`,
+author, and the **full untruncated body** of every comment in the thread. Step 4a
+re-quotes from this file, so a long loop can't lose the reviewer's exact wording — and
+the fetch never has to run twice.
+
 ## Step 3 — Print the inventory, then stop
 
 Before reading a single line of code, output a numbered table. This is the map for
@@ -121,7 +127,8 @@ the whole session and what makes "reprends au point 4" possible.
 ```
 
 No verdicts, no code reading, no opinions at this stage — a faithful one-line gist
-per point is all that belongs here.
+per point is all that belongs here. The full comment body is re-printed when the point
+comes up in 4a, so nothing is lost by keeping this table terse.
 
 If a start index was passed as argument (`/walk-pr-feedback 3217 4`), the inventory
 was still rebuilt from a fresh fetch — a thread resolved or a comment added since the
@@ -133,9 +140,25 @@ straight to 4a on a numeric argument.
 
 For each point N, in order. **Never batch two points into one turn.**
 
-### 4a. Ground the point in the code
+### 4a. Restate the reviewer's comment in full, then ground it in the code
 
-Read the file at `path:line` (`originalLine` if `line` is null) and enough context
+Open every point by re-printing the feedback **verbatim and in full** — the inventory
+only carried a one-line gist, so by the time point N comes up neither the user nor you
+still has the actual wording in view. Don't summarize, don't trim, don't paraphrase:
+the reviewer's exact words are what's being judged, and a trimmed quote is how a
+misreading slips in.
+
+```markdown
+### Point <N>/<X> — `src/foo.vue:42` — @reviewer · <date>
+> <corps intégral du commentaire, tel quel — code blocks, suggestions et liens compris>
+```
+
+If the thread already has several comments (reviewer's follow-up, a previous answer),
+quote **all of them** in order, each attributed to its author — the discussion so far
+is often what makes the ask intelligible. Same for a point that came from a review
+body or a general PR comment: the whole relevant passage, not an extract.
+
+Then read the file at `path:line` (`originalLine` if `line` is null) and enough context
 around it to actually judge the point. For a `.vue` / `.ts` file whose comment
 concerns behavior, also open the matching `.spec.ts`.
 
@@ -315,6 +338,8 @@ If the loop was interrupted, state exactly which point number to resume from.
   skill authorizes the loop, not the push.
 - One point per turn. Don't read ahead, don't pre-fix point N+1, don't collapse two
   points into one gate — the whole value is the token saving and the control.
+- Every point opens with the reviewer's comment quoted **in full**. Summarizing it is
+  the one economy not to make: it's the text being judged.
 - Don't assert code behavior you haven't read — cite `path:line` or say
   `non vérifiable dans le code`.
 - If a fix touches a shared utility, a serializer, or more than three files, stop and
