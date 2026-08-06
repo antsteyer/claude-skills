@@ -100,6 +100,11 @@ make, a test to add, a change to do, a point to confirm. **No purely positive co
 ("bon réflexe", "bien joué", "rien à changer") — these are request-changes reviews. Be concise;
 quality over quantity.
 
+**Every body starts with `🤖 `** — the review body **and each inline comment**, no exception. The
+easy mistake is prefixing only the review body and forgetting the inline ones; they are separate
+bodies and each needs its own marker. Write the prefix as you compose each body, not as a pass
+afterwards.
+
 ### 4d. Deliver the review
 
 **Dry-run mode** — write nothing to GitHub. Don't call any write endpoint (`POST`/`PUT`/`DELETE`) and
@@ -116,12 +121,16 @@ rendered in the chat (see Step 5). Resolving line numbers still matters — they
   ```json
   {
     "commit_id": "<HEAD_SHA>",
-    "body": "<summary + cross-cutting remarks not tied to a line>",
+    "body": "🤖 <summary + cross-cutting remarks not tied to a line>",
     "comments": [
-      {"path": "path/file.rb", "line": <line in the NEW file version>, "side": "RIGHT", "body": "..."}
+      {"path": "path/file.rb", "line": <line in the NEW file version>, "side": "RIGHT", "body": "🤖 ..."}
     ]
   }
   ```
+- Before posting, grep the payload and confirm **every** `body` (review + each comment) starts with
+  `🤖`. Fixing it after the fact is expensive: `PATCH /pulls/comments/<id>` returns **404 on pending
+  review comments** (they aren't addressable until submitted), so the only remedy is
+  `DELETE /pulls/<N>/reviews/<review_id>` then re-POST the whole payload.
 - `line` = line number **in the file** (new version), present in a diff hunk. Use `side: "RIGHT"`
   only (avoid deleted lines). For new files, it's still the file line number, not the diff position.
 - Post in a **single** request:
