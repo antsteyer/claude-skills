@@ -290,8 +290,12 @@ you when you do.
    - a single `mount(` / `shallowMount(` per file, inside `buildComponent`
    - mocks imported from `tests/helpers/mocks/`, never built in the spec; a test that
      needs `as` casts is the sign the shared mock should be enriched instead
-4. Run **only** the spec files touched by this point: `npx vitest run <path-to-spec>`.
-   Grep for the path if it isn't obvious:
+4. **Only if the point can break something**, run the spec files touched by this
+   point: `npx vitest run <path-to-spec>`. Skip it for a change that cannot alter
+   behaviour — renaming a local variable or an `it()` label, reordering, a comment,
+   extracting a literal into a const. Run it as soon as logic, a conditional template
+   branch, a component contract or a spec's setup/assertions change. Grep for the
+   path if it isn't obvious:
    `grep -rl "ComponentName" tests/ --include="*.spec.ts"`. **Never the full suite,
    never `--maxWorkers`** — a single review point doesn't justify rerunning the whole
    project. Report `PASS` / `FAIL`, and grep the output for `[Vue warn]` — any warning
@@ -305,7 +309,7 @@ you when you do.
 `AskUserQuestion`, however small it looks:
 
 - **Valider et commiter** — go to 4h
-- **Corriger d'abord** — the user says what to change; apply, re-run the spec,
+- **Corriger d'abord** — the user says what to change; apply, re-run the spec if step 4 calls for it,
   re-show the diff, ask again
 - **Annuler ce point** — mark the point skipped, next N. Revert with
   `git restore --source=HEAD <files>` **only in commit-per-point mode**, where HEAD
@@ -375,11 +379,15 @@ One commit per validated point — it keeps the loop resumable and makes each re
 point traceable. (If the user asks for a single commit at the end, hold the changes
 and commit once at Step 5 instead.)
 
-1. Stage explicitly: `git add <file1> <file2>` — never `git add -A` / `git add .`.
+1. Format **only the files this point touched**, never the whole project:
+   `bunx eslint --fix <files>` for `.ts`/`.js`/`.vue`, `bunx stylelint --fix <files>`
+   for `.scss`, then `bunx prettier --write <files>`. Then stage explicitly:
+   `git add <file1> <file2>` — never `git add -A` / `git add .`.
 2. Prefix from the branch name: `PROD-XXXX-...` → `PROD-XXXX `, `<N>-...` → `#<N> `,
    otherwise no prefix.
 3. Message in English, conventional style (`fix(scope): ...`, `update(scope): ...`),
-   focused on the *why*. The `PreToolUse` hook runs `format` on commit.
+   focused on the *why*. The `PreToolUse` hook checks prettier/eslint/stylelint on
+   the staged files and blocks the commit on failure — it does not format.
 4. Write the reply draft for this thread (🤖 + what changed + the `path:line`) to
    `~/.claude/pr-feedback/<owner>-<repo>-<PR#>/reply-<databaseId>.md`.
 5. Update `state.json`: `status: done`, the commit sha, `reply: drafted`.
@@ -402,16 +410,21 @@ resume the loop at the next `open` point afterwards.
 Steps 1–3 below run **only if at least one commit was made**. If the pass produced
 nothing but replies, skip straight to the posting part.
 
-1. Pre-push checks, in parallel: `bun run typecheck` and `bun run lint` (fall back to
-   the repo's package manager). Not the test suite — the specs touched by each point
-   were already run at 4c. If either fails, report and stop — don't push.
+1. Pre-push check: `bun run typecheck` (fall back to the repo's package manager),
+   **only if a commit of this pass changed a signature, an interface, a type or an
+   exported symbol** — or touched `.ts`/`.vue` code in a way the specs don't cover.
+   Skip it when the pass only changed test labels, literals, CSS or comments. Never
+   `bun run lint`: the commit hook already linted each commit's staged files, and the
+   local `pre-push` hook runs the full lint on push. Not the test suite either — the
+   specs were handled at 4c. If the typecheck fails, report and stop — don't push.
 2. **Ask before pushing.** Unlike `/ship`, invoking this skill is not authorization to
    push — the user gated commits and replies, never push. `AskUserQuestion`:
    *pousser maintenant* / *je pousse moi-même* / *rester local*. On anything but the
    first, skip the push, hold the replies (they reference pushed fixes), and jump to
    Step 6 listing what's left to do.
 3. `git push` (add `-u origin <branch>` if there's no upstream). Verify the branch
-   name first; **never push to master**.
+   name first; **never push to master**. If the `pre-push` lint hook blocks the push,
+   report the failure and stop.
 
 Then post the replies validated during the loop, **in-thread**, never top-level, from
 the files written during the loop:
@@ -542,6 +555,7 @@ don't rewrite it unasked.
 | 2 | Review (résumé) | ❌ | aucune | — | — | postée, thread ouvert |
 | 3 | `src/baz.vue:88` | 🤔 → ✅ | prop renommé | PASS | `e4f5g6h` | postée + résolu |
 | 4 | `src/old.vue:5` | ⏸ | en attente du PO | — | — | thread ouvert |
+| 5 | `tests/foo.spec.ts:12` | ✅ | libellé `it()` | non lancés | `c3d4e5f` | postée + résolu |
 
 Threads laissés ouverts : #2 (en attente du reviewer), #4 (en attente du PO).
 
