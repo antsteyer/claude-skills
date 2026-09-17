@@ -152,8 +152,13 @@ Scale to what the conflicts touched:
   - Files resolved by hand are formatted in Step 3, before their `git add`
     (`bunx eslint --fix`, `bunx stylelint --fix`, `bunx prettier --write`), so
     the replayed commit already carries the formatted version.
-- **agorize-core**
-  - `bundle exec rspec <specs of the conflicted files>`.
+- **agorize-core** — do **not** run RSpec locally (slow, needs Elasticsearch
+  and Postgres; the CI runs the suite on push). Verify structurally instead:
+  - `git range-diff <old-base>..<old-head> origin/<base>..HEAD` (the old tip is
+    `ORIG_HEAD` right after the rebase) — each replayed commit should match its
+    original except for the hand-resolved hunks.
+  - `git diff --stat origin/<base>...HEAD` only lists this PR's files, and
+    `git rev-list --count HEAD..origin/<base>` is `0`.
   - Migrations in the diff → `bin/rails db:migrate` (Step 4).
 - No conflict at all → no check needed beyond `git log --oneline origin/<base>..HEAD`.
 
