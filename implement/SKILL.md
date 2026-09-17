@@ -3,107 +3,115 @@ name: implement
 description: >-
   Analyse a Jira or GitHub ticket, propose an implementation plan for
   validation, then implement the changes and run tests. Does NOT create a
-  worktree (use /worktree first) and does NOT commit or push (use /ship after).
-  Use when the user says "/implement <url>", "implémente ce ticket", or provides
-  a Jira/GitHub link and wants the code written.
+  worktree (use /worktree first) and does NOT push (use /ship after). Use when
+  the user says "/implement <url>", "implémente ce ticket", or provides a
+  Jira/GitHub link and wants the code written.
 ---
 
-# /implement — Analyse and implement a ticket (no worktree, no ship)
-
-Takes a single argument: a Jira ticket URL (`https://agorize.atlassian.net/browse/PROD-XXXX`),
-a GitHub issue URL, or a bare GitHub issue number.
+# /implement — Analyse and implement a ticket (no worktree, no push)
 
 Assumes the worktree is already created and the working directory is set to it.
 
-## Step 1 — Parse the argument
+All user-facing text — plan, `AskUserQuestion` questions and labels, report — is in **French**.
 
-- Jira URL or `PROD-XXXX` → **Jira mode**, extract `PROD-XXXX` as `ID`
-- GitHub URL or bare number → **GitHub mode**, extract the issue number as `ID`
-- Anything else → ask the user to clarify
+## Step 1 — Parse the input
 
-## Step 2 — Fetch ticket metadata
+The input is a ticket reference optionally followed by a free-form brief:
 
-**Jira mode** — use `mcp__plugin_atlassian_atlassian__getJiraIssue` with `cloudId: agorize.atlassian.net`,
-fields `["summary", "description", "issuetype", "status"]`, `responseContentFormat: "markdown"`.
+- Jira URL or `PROD-XXXX` → **Jira mode**, `ID` = `PROD-XXXX`
+- GitHub issue URL or bare number → **GitHub mode**, `ID` = issue number
+- Everything else is the **brief**. Extract from it:
+  - Figma URLs → `FIGMA_LINKS`
+  - agorize-core PR URLs → `BACK_PR`
+  - hints, glossary ("Deliverables = participations answers"), scope restrictions ("on ne touche pas aux access rights") → `BRIEF`. The brief overrides the ticket when they disagree.
 
-**GitHub mode** — `gh issue view <ID> --json title,body,labels`
+No identifiable ticket (empty input, a file name, a truncated paste) → ask the user before doing anything.
 
-Extract:
-- `SUMMARY` — one-line title
-- `DESCRIPTION` — full body / acceptance criteria
+## Step 2 — Gather the context
 
-## Step 3 — Analyse the ticket and codebase
+**Ticket**
+- Jira: `mcp__plugin_atlassian_atlassian__getJiraIssue` with `cloudId: agorize.atlassian.net`, fields `["summary", "description", "issuetype", "status", "parent", "issuelinks"]`, `responseContentFormat: "markdown"`.
+- GitHub: `gh issue view <ID> --json title,body,labels`, plus the parent issue when the body references one.
+- Read the parent and linked tickets too: their scope may have been narrowed since the ticket was written.
 
-Explore the codebase to understand what needs to change.
+**Backend companion** (Jira mode)
+- If `BACK_PR` is absent, look for it: `gh pr list --repo Agorize/agorize-core --search <ID> --state all`.
+- Read its description and diff for the endpoints, attributes and flags the front consumes.
+- Run `git worktree list` in agorize-core and note the worktree matching `ID`, if any. It is the only place to edit translations.
 
-Use an `Explore` subagent briefed with:
-- The full ticket description / acceptance criteria
-- The suspected area (component names, routes, stores mentioned in the ticket)
-- The question: "Which files need to change, and what exactly needs to change in each?"
+## Step 3 — Analyse the codebase
 
-The agent must return:
-- A list of files to create or modify, with the minimal change needed in each
-- Any shared serializer / utility impact
-- Known edge cases from the ticket AC
+Brief an `Explore` subagent with the ticket, the `BRIEF`, the backend contract, and the area the brief points to — tell it to stay there before widening. Ask:
+
+- Which files need to change, and what exactly in each?
+- **What already exists that covers part of the need?** Utils/helpers, `Base*` components and their defaults, i18n keys (`common.*` and siblings), Bootstrap 5 utility classes, store actions, test mocks under `tests/helpers/mocks/`.
+- Shared serializer / utility / module impact.
+- Edge cases from the AC.
+
+**Figma** — when `FIGMA_LINKS` is set, read the layer tree of each node (not only the screenshot) and note icons, severities, variants and colors. If a state or breakpoint described in the ticket has no precise node, ask the user for it instead of guessing.
 
 **Do not write any code yet.**
 
-## Step 4 — Propose an implementation plan
+## Step 4 — Propose the plan
 
-Present the plan to the user as a numbered list:
+Present in French:
 
 ```
-Files to modify:
-1. src/components/Foo/Bar.vue — [what changes]
-2. src/stores/foo.ts — [what changes]
-3. tests/components/Foo/Bar.spec.ts — [what tests to add/update]
+Fichiers à modifier :
+1. src/components/Foo/Bar.vue — [changement]
+2. src/stores/foo.ts — [changement]
+3. tests/unit/components/Foo/Bar.spec.ts — [tests ajoutés / modifiés]
 
-Shared impact: none / [describe if any]
-Edge cases: [from AC]
+Réutilisé : [helpers, clés i18n, composants existants]
+Back : [PR agorize-core, worktree core] / aucun
+Impact partagé : aucun / [détail]
+Cas limites : [AC]
+Découpage : un seul diff final / étapes (voir ci-dessous)
 ```
 
-Then use `AskUserQuestion` to ask:
-- "Plan looks good?" with options **Approve** / **Needs changes** (+ free-text for changes)
+**Splitting** — judge from the size of the change:
+- Small change (one concern, a handful of files) → a single diff reviewed at the end.
+- Larger change (several concerns, store + components + routing, back + front…) → list ordered steps, each one a reviewable, self-consistent commit (e.g. 1. store + specs, 2. component + specs, 3. wiring).
 
-**Do not write any code until the plan is approved.**
-
-If the user requests changes, update the plan and re-present it before proceeding.
+Then `AskUserQuestion`: « Le plan te convient ? » with **Approuvé** / **À ajuster**. Re-present the plan after any change. **No code before approval.**
 
 ## Step 5 — Implement
 
-Follow the approved plan strictly. Rules:
-- Minimal, targeted changes — do not refactor unrelated code.
-- Options API only (no Composition API / `setup()`).
-- Use `...mapStores(useXxxStore)` in `computed` for store access.
-- Bootstrap 5 utilities over custom CSS wherever possible.
-- No `!` non-null assertions — use real types or `?? fallback`.
-- Always update the `.spec.ts` file alongside any `.vue` or `.ts` change.
-- For every changed `.spec.ts`, run `npx vitest run <path>` immediately after editing.
+Follow the approved plan. Minimal changes, no unrelated refactor.
 
-When touching a shared serializer, utility, or module used elsewhere:
-stop, list the broader impact, and confirm scope with the user before editing.
+- **Before writing or editing any `.spec.ts`**, re-read the "Spec Conventions" section of the global CLAUDE.md and the spec-related `feedback_*` memories (tooltips, grouped expects, router in `buildComponent`, mocks…). These are the rules most often corrected on this skill.
+- Update the matching `.spec.ts` alongside every `.vue` / `.ts` change.
+- Translations: only in the agorize-core worktree for this ticket (ask before creating one), `en.yml` + `fr.yml`, reuse existing keys first, then run `ac_t` once.
+- Shared serializer, utility or module → stop, list the impact, confirm before editing.
 
-## Step 6 — Run tests
+### Step-by-step mode
 
-After all files are written, run the full set of affected specs:
+When the plan was split, at the end of each step:
+1. Run the specs of that step (see Step 6 rules).
+2. Format only the changed files: `bunx eslint --fix`, `bunx stylelint --fix` for `.scss`, `bunx prettier --write`.
+3. Show the diff summary and the proposed commit message (`PROD-XXXX ` / `#N ` prefix), then ask « Je commite cette étape ? » — **Commiter** / **À ajuster**.
+4. Commit only on **Commiter**. Never push. Approving the plan does not approve the commits.
 
-```bash
-npx vitest run <spec1> <spec2> ...
-```
+## Step 6 — Tests
 
-If tests fail:
-- Fix the root cause (do not suppress or skip).
-- Re-run until green.
-- Report any test that could not be fixed and why.
+- Run each changed spec **once** after editing: `npx vitest run <path>`. After a fix, re-run only the failing spec.
+- At the end, run only the specs not already green since their last edit — never re-run a green spec "to confirm".
+- **Never** run the full suite, `bun format` or `bun run lint` — the scope is always enumerable by grep (store name, component name, endpoint).
+- `bun run typecheck` only when a signature, interface or exported symbol changes across files.
+- Treat every `[Vue warn]` as a failure.
+- On failure, fix the root cause; report anything left unfixed and why.
 
 ## Step 7 — Report
 
-Summarise what was done:
-- Files created / modified (with line counts)
+In French:
+- Files created / modified
 - Tests: pass / fail count
-- Anything left to do before `/ship`
+- Commits made (step-by-step mode) and what remains uncommitted
+- Anything left before `/ship`
 
 ## Hard rules
 
-- **Never** commit or push — this skill stops before `/ship`.
-- If the Explore agent or tests surface scope wider than the plan, pause and confirm before expanding.
+- **Never** push — this skill stops before `/ship`.
+- **Never** commit outside the step-by-step validation above.
+- After a `/ship`, any follow-up work stops at the working tree: show the diff and wait for a new go-ahead.
+- Scope wider than the plan (from Explore, tests, or the backend PR) → pause and confirm before expanding.
