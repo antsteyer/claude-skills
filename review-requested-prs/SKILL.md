@@ -74,20 +74,34 @@ The PRs I keep after this step are the final work list.
 
 ## Step 4 — Review each chosen PR (pending, never submitted)
 
-Run the PRs concurrently when there are several: one subagent per PR, each in its **own git
-worktree** (`isolation: "worktree"`) so branch checkouts don't collide. Each subagent owns one PR
-end to end and reports back. Give every subagent the rules below verbatim.
+Run the PRs concurrently when there are several: one subagent per PR. Reading the branch through a
+named ref (4a) needs no checkout, so PRs don't collide — **never use `isolation: "worktree"`** (it
+creates the worktree inside the repo, which breaks Vitest and Vite). Each subagent owns one PR end to
+end and reports back. Give every subagent the rules below verbatim.
 
 ### 4a. Build context — and read what's already been handled
 - `gh pr view <N> --repo <REPO> --json title,body,baseRefName,headRefName,files,additions,deletions`
 - `gh pr diff <N> --repo <REPO>`  and head sha: `... --json commits --jq '.commits[-1].oid'`
+- **When I am the PR's author** (`gh pr view <N> --json author`), the review is a self-review: same
+  rules, still PENDING (GitHub refuses `REQUEST_CHANGES`/`APPROVE` on one's own PR anyway).
 - **Read prior feedback so I don't repeat myself**: existing reviews and their comments
   (`gh api repos/<REPO>/pulls/<N>/reviews` and `.../reviews/<id>/comments`,
   `gh api repos/<REPO>/pulls/<N>/comments`). Skip anything already raised and already addressed by
   later commits; only surface what's still open or new.
-- Get the full branch for real context (not just the diff): `gh pr checkout <N>`; if SSH is blocked,
-  `git fetch origin refs/pull/<N>/head` then check out FETCH_HEAD. Read the changed files **and the
-  code they call** (scopes, authorization, serializers, migrations) — trace the calls end to end.
+- **Reuse the brief when it exists**: if the brief JSON is there (its path, without `.json`, is printed by
+  `python3 ~/.claude/skills/pr-brief/blocks.py report <REPO> <N> brief`), read it
+  first — its steps, impact and facts are already verified context. Its `head_sha` must match the
+  PR's current head; otherwise treat it as stale and rebuild the context from the branch.
+- Get the full branch for real context (not just the diff), **without any checkout**: apply the branch
+  mechanics of `pr-brief`, step 2 (`~/.claude/skills/pr-brief/SKILL.md`) — local clone looked up
+  under `~/workspaces`, `git fetch origin refs/pull/<N>/head:refs/pr-brief/<N>` (named ref, never
+  `FETCH_HEAD`), read with `git show refs/pr-brief/<N>:<path>` and `git grep`. Never `gh pr checkout`
+  or `git checkout` in a local clone; when a tool genuinely needs files on disk, use a sibling
+  worktree (`git worktree add --detach ../<repo>.worktrees/pr-review-<N> refs/pr-brief/<N>`) — that
+  sibling worktree is the only kind allowed. A ref already at the PR's head (left by `pr-brief` or
+  `pr-flow`) is reused as is; remember which refs **this run** fetched, for 4e. Read the changed files **and the
+  code they call** (scopes, authorization, serializers, migrations; on agorize-front, store consumers,
+  component parents, shared mocks, routes, the companion agorize-core branch) — trace the calls end to end.
 
 ### 4b. Review it as if a junior wrote it
 Analyse the PR as if a junior wrote it. Do a real, thorough review and **also** keep an eye on the
@@ -95,7 +109,10 @@ choices made: simplicity, the "be clear, not clever" rule, security, etc. The li
 things not to overlook, not the scope of the review.
 
 ### 4c. Comment style
-**French**, constructive/mentoring, always explain the **why**. **Actionable only** — a decision to
+**French**, constructive/mentoring, always explain the **why**.
+**One thread per problem**; order them functional bugs first, then contract/data, then tests and
+conventions. A PR rarely deserves more than ~10 inline comments — past that, group the minor
+convention points into one comment or into the body. **Actionable only** — a decision to
 make, a test to add, a change to do, a point to confirm. **No purely positive comments**
 ("bon réflexe", "bien joué", "rien à changer") — these are request-changes reviews. Be concise;
 quality over quantity.
@@ -116,8 +133,9 @@ rendered in the chat (see Step 5). Resolving line numbers still matters — they
 - First check no pending review of mine already exists (one draft per user/PR):
   `gh api repos/<REPO>/pulls/<N>/reviews --jq '.[] | select(.user.login=="<ME>") | "\(.id) \(.state)"'`.
   If a PENDING one exists, report it and don't create a second.
-- Write the payload **inside the repo dir** (the sandbox isolates `/tmp`, so `gh --input /tmp/...`
-  fails), e.g. `./.review_<N>.json`:
+- Write the payload **in the session scratchpad directory** (the sandbox isolates `/tmp`, so
+  `gh --input /tmp/...` fails; never write it into the repo's working tree), e.g.
+  `<scratchpad>/review-<N>.json`:
   ```json
   {
     "commit_id": "<HEAD_SHA>",
@@ -131,19 +149,23 @@ rendered in the chat (see Step 5). Resolving line numbers still matters — they
   `🤖`. Fixing it after the fact is expensive: `PATCH /pulls/comments/<id>` returns **404 on pending
   review comments** (they aren't addressable until submitted), so the only remedy is
   `DELETE /pulls/<N>/reviews/<review_id>` then re-POST the whole payload.
+- An inline comment can only anchor on a line **inside a hunk** of the PR diff (added or context
+  line). A finding on a file outside the diff, or on a line no hunk shows, goes into the review
+  `body` with its `path:line` — never as an inline comment (that is the usual 422).
 - `line` = line number **in the file** (new version), present in a diff hunk. Use `side: "RIGHT"`
   only (avoid deleted lines). For new files, it's still the file line number, not the diff position.
 - Post in a **single** request:
-  `gh api --method POST repos/<REPO>/pulls/<N>/reviews --input ./.review_<N>.json --jq '"\(.id) \(.state)"'`
+  `gh api --method POST repos/<REPO>/pulls/<N>/reviews --input <scratchpad>/review-<N>.json --jq '"\(.id) \(.state)"'`
 - **FORBIDDEN**: never include an `"event"` field, never run `gh pr review`. The absence of `event`
   is exactly what keeps the review a draft; either one would submit it immediately.
 - On `422 "line could not be resolved"`: fix the line number (or move that point into `body`) and
   re-post the whole payload. Iterate until `state=PENDING`. Delete the payload file afterwards.
 
-### 4e. Worktree cleanup
-After the subagents finish, remove their worktrees and temp branches
-(`git worktree remove --force ...`, `git worktree prune`, delete `worktree-agent-*` branches) and
-confirm the default branch (usually `master` or `main`) is clean.
+### 4e. Cleanup
+After the subagents finish, delete the `refs/pr-brief/<N>` refs **this run fetched** (never a ref
+reused from `pr-brief`/`pr-flow`, nor one another pass running alongside still reads), remove any sibling
+worktree (`git worktree remove --force ...`, `git worktree prune`), and confirm the local clone's
+working tree and current branch are exactly as they were before the run.
 
 ## Step 5 — Report back
 
@@ -151,7 +173,8 @@ confirm the default branch (usually `master` or `main`) is clean.
 For each review, verify `state=PENDING` and `submitted_at=null`. Remind me that a pending review is
 visible **only to me** (with a "Pending" badge) until I click **Submit review** on the UI, and that
 the `GET /pulls/<N>/comments` endpoint does **not** list pending comments (use
-`.../reviews/<id>/comments`).
+`.../reviews/<id>/comments`). On a pending review, those comments come back with `line` and `side`
+set to `null` and only `position` filled: that is normal, not a broken anchor.
 
 **Dry-run mode** — render here what *would* have been posted, nothing sent to GitHub. For each PR,
 print a section: a `Repo#PR — title` header, the review **body**, then each inline comment as
