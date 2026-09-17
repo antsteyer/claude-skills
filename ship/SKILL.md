@@ -1,7 +1,7 @@
 ---
 name: ship
 description: >-
-  Run pre-flight checks (typecheck, lint, specs touched by the diff), draft a
+  Run pre-flight checks (format the changed files, typecheck, specs touched by the diff), draft a
   commit message with the correct branch-based prefix (PROD-XXXX or #N), then
   commit, push, and open a PR — no approval prompts; the /ship invocation is the
   authorization. Use when the user says "/ship", "ship", "ship it", "shippe",
@@ -30,11 +30,23 @@ git branch --show-current
 Detect the package manager (`bun.lock`/`bun.lockb` → bun, else `yarn.lock` → yarn,
 else `package-lock.json` → npm) and use it for every step below.
 
-Run **format first** so the final diff is what actually gets committed:
+Run **format first** so the final diff is what actually gets committed. Format
+**only the files the branch changes**, never the whole project (`bun run format`
+rewrites the entire codebase and is slow):
 
-- bun → `bun run format`
-- yarn → `yarn format`
-- npm → `npm run format`
+```bash
+files=$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u | while read -r f; do [ -f "$f" ] && echo "$f"; done )
+code=$(echo "$files" | grep -E '\.(ts|js|vue)$')
+styles=$(echo "$files" | grep -E '\.scss$')
+[ -n "$code" ] && echo "$code" | xargs bunx eslint --fix
+[ -n "$styles" ] && echo "$styles" | xargs bunx stylelint --fix
+[ -n "$code$styles" ] && printf '%s\n%s\n' "$code" "$styles" | grep . | xargs bunx prettier --write
+```
+
+(`xargs` rather than an unquoted `$code`: zsh does not word-split variables.)
+
+(With yarn/npm, swap `bunx` for `yarn`/`npx`.) Fall back to the full `format`
+script only for a very wide change.
 
 Then show the post-format diff stat:
 
@@ -42,11 +54,10 @@ Then show the post-format diff stat:
 git diff --stat
 ```
 
-Then run typecheck and lint (parallel):
-
-- bun → `bun run typecheck` & `bun run lint`
-- yarn → `yarn typecheck` & `yarn lint`
-- npm → `npm run typecheck` & `npm run lint`
+Then run the typecheck (`bun run typecheck` / `yarn typecheck` / `npm run typecheck`).
+**Do not run the project-wide `lint`**: the `PreToolUse` commit hook already lints
+the staged files, and the local `pre-push` hook runs the full `lint` before the push
+goes out. Running it here only does the same work twice.
 
 If any `.spec.ts` / `.spec.js` file is in the diff, run the affected tests:
 
@@ -82,14 +93,16 @@ so the user can see what landed without being prompted.
 1. Stage relevant files explicitly: `git add <file1> <file2> ...` — never `git add -A` or `git add .`.
    Exclude `.env*`, credentials, and large binaries.
 2. Run `git commit -m "<message>"`.
-3. The existing global PreToolUse format hook will run format again as a
-   backstop (usually idempotent since pre-flight already formatted).
+3. The global `PreToolUse` hook checks prettier/eslint/stylelint on the staged
+   files and blocks the commit on failure — it checks, it does not format.
 4. Verify with `git status --short` and `git log -1 --oneline`.
 
 ## Step 4 — Push
 
 1. Confirm the branch name and intended remote (typically `origin`).
-2. Run `git push` (add `-u origin <branch>` if no upstream is set).
+2. Run `git push` (add `-u origin <branch>` if no upstream is set). The local
+   `pre-push` hook runs the full `lint` here; if it blocks the push, report the
+   failure and stop.
 
 ## Step 5 — PR
 
