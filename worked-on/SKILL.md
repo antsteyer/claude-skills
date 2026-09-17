@@ -53,7 +53,8 @@ Use this as `--author` in every `git log` call below.
 Start with the current repo's root. Then check whether it's part of the
 Agorize workspace pair: if the current repo is `agorize-front`, also scan
 `agorize-core` (and vice versa) at
-`/Users/antoinesteyer/workspaces/agorize/<other-repo>`, since front/back
+`<parent of the main checkout>/<other-repo>` — the main checkout is the first entry of
+`git worktree list --porcelain`, so this holds from inside a worktree too — since front/back
 tickets are frequently shipped as linked PRs. If the sibling doesn't exist or
 isn't a git repo, skip it silently.
 

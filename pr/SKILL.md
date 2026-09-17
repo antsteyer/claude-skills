@@ -2,7 +2,7 @@
 name: pr
 description: >-
   Full PR creation workflow: generate description, create GitHub PR with Jira
-  link when branch starts with PROD-, assign to antsteyer, and transition the
+  link when branch starts with PROD-, assign it to the current GitHub user, and transition the
   Jira ticket to "Ready for review". Use when the user says "create a PR",
   "open a PR", "push and open a PR", or "/pr".
 ---
@@ -85,17 +85,20 @@ gh pr create \
 <generated description>
 EOF
 )" \
-  --assignee antsteyer
+  --assignee @me
 ```
 
-**Always** pass `--assignee antsteyer`.
+**Always** pass `--assignee @me` (the authenticated `gh` user).
 
 ### Step 6: Transition the Jira ticket (if PROD- branch)
 
-If a `JIRA_TICKET` was extracted, transition it to "Ready for review":
+If a `JIRA_TICKET` was extracted, transition it to "Ready for review".
+The Jira credentials come from the environment: `JIRA_EMAIL` (the Atlassian account
+email) and `JIRA_API_TOKEN`. If either is unset, say so and skip the transition — never
+guess the email from `git config`, the Jira account can differ from the commit identity.
 
 ```bash
-curl -s -u $JIRA_EMAIL:$JIRA_API_TOKEN \
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
   -X GET \
   "https://agorize.atlassian.net/rest/api/3/issue/<JIRA_TICKET>/transitions" \
   | jq '.transitions[] | {id, name}'
@@ -104,7 +107,7 @@ curl -s -u $JIRA_EMAIL:$JIRA_API_TOKEN \
 Find the transition ID for "Ready for review" (or "Ready for preview"), then:
 
 ```bash
-curl -s -u $JIRA_EMAIL:$JIRA_API_TOKEN \
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
   -X POST \
   -H "Content-Type: application/json" \
   -d '{"transition":{"id":"<ID>"}}' \
@@ -117,7 +120,7 @@ Return the PR URL and confirm the Jira transition was applied (or skipped if no 
 
 ## Rules
 
-- Never skip the `--assignee antsteyer` flag.
+- Never skip the `--assignee @me` flag.
 - Never post PR comments without the 🤖 emoji prefix.
 - Always include the Jira link when the branch starts with `PROD-`.
 - Do not amend or force-push unless explicitly asked.
