@@ -10,7 +10,7 @@ Fetch all `[FRONT]` tickets from a given sprint in the `PROD` Jira project on `a
 ## Sprint name resolution
 
 The user may provide the sprint in different formats:
-- Short: `W17` → expand to `2026 Q1 - W17`
+- Short: `W17` → expand to `<YYYY> Q1 - W17`, where `<YYYY>` is the current year (`date +%Y`)
 - Full: `2026 Q1 - W17` → use as-is
 
 If the quarter prefix is ambiguous, infer from the week number: Q1 = W1–W13, Q2 = W14–W26, Q3 = W27–W39, Q4 = W40–W52.

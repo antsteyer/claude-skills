@@ -55,9 +55,17 @@ git diff --stat
 ```
 
 Then run the typecheck (`bun run typecheck` / `yarn typecheck` / `npm run typecheck`).
-**Do not run the project-wide `lint`**: the `PreToolUse` commit hook already lints
-the staged files, and the local `pre-push` hook runs the full `lint` before the push
-goes out. Running it here only does the same work twice.
+Then decide whether to lint. The project-wide `lint` is left to a local `pre-push`
+hook when one exists — running it here would do the same work twice:
+
+```bash
+hooks=$(git config core.hooksPath || echo "$(git rev-parse --git-common-dir)/hooks")
+[ -x "$hooks/pre-push" ] && echo "pre-push hook present" || echo "no pre-push hook"
+```
+
+- **Hook present** → skip `lint`.
+- **No hook** → run the lint script now (`bun run lint` / `yarn lint` / `npm run lint`):
+  nothing else will lint this change before it reaches the remote.
 
 If any `.spec.ts` / `.spec.js` file is in the diff, run the affected tests:
 
@@ -93,16 +101,17 @@ so the user can see what landed without being prompted.
 1. Stage relevant files explicitly: `git add <file1> <file2> ...` — never `git add -A` or `git add .`.
    Exclude `.env*`, credentials, and large binaries.
 2. Run `git commit -m "<message>"`.
-3. The global `PreToolUse` hook checks prettier/eslint/stylelint on the staged
-   files and blocks the commit on failure — it checks, it does not format.
+3. A `PreToolUse` hook on `git commit`, when the environment has one, checks
+   prettier/eslint/stylelint on the staged files and blocks the commit on failure —
+   it checks, it does not format.
 4. Verify with `git status --short` and `git log -1 --oneline`.
 
 ## Step 4 — Push
 
 1. Confirm the branch name and intended remote (typically `origin`).
-2. Run `git push` (add `-u origin <branch>` if no upstream is set). The local
-   `pre-push` hook runs the full `lint` here; if it blocks the push, report the
-   failure and stop.
+2. Run `git push` (add `-u origin <branch>` if no upstream is set). A local
+   `pre-push` hook, when present (Step 1), runs the full `lint` here; if it blocks
+   the push, report the failure and stop.
 
 ## Step 5 — PR
 

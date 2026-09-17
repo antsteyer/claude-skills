@@ -520,21 +520,24 @@ ticket where it is.
 When both hold, list the transitions and apply "Final Review":
 
 ```bash
-curl -s -u $JIRA_EMAIL:$JIRA_API_TOKEN \
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
   -X GET \
   "https://agorize.atlassian.net/rest/api/3/issue/<PROD-XXXX>/transitions" \
   | jq '.transitions[] | {id, name}'
 ```
 
 ```bash
-curl -s -u $JIRA_EMAIL:$JIRA_API_TOKEN \
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
   -X POST \
   -H "Content-Type: application/json" \
   -d '{"transition":{"id":"<ID>"}}' \
   "https://agorize.atlassian.net/rest/api/3/issue/<PROD-XXXX>/transitions"
 ```
 
-The Jira account is `@agorize.com`, not `@hey.com`. If "Final Review" isn't in the
+The Jira credentials come from the environment: `JIRA_EMAIL` (the Atlassian account
+email) and `JIRA_API_TOKEN`. If either is unset, say so and skip the transition — never
+guess the email from `git config`, the Jira account can differ from the commit identity.
+If "Final Review" isn't in the
 available transitions (the ticket isn't in a state that allows it), say which
 transitions were offered and leave the ticket untouched — don't pick a neighbouring
 status.
