@@ -34,10 +34,15 @@ No identifiable ticket (empty input, a file name, a truncated paste) → ask the
 - GitHub: `gh issue view <ID> --json title,body,labels`, plus the parent issue when the body references one.
 - Read the parent and linked tickets too: their scope may have been narrowed since the ticket was written.
 
-**Backend companion** (Jira mode)
-- If `BACK_PR` is absent, look for it: `gh pr list --repo Agorize/agorize-core --search <ID> --state all`.
-- Read its description and diff for the endpoints, attributes and flags the front consumes.
-- Run `git worktree list` in agorize-core and note the worktree matching `ID`, if any. It is the only place to edit translations.
+**Backend companion** (Jira mode) — find it even when the brief does not mention it.
+1. **Back ticket** — a `[FRONT] …` story is usually paired with a `[BACK] …` story (sometimes `[🔥BACK]`) with the same wording, linked by `is blocked by`. Look in this order:
+   - the front ticket's `issuelinks` for a summary containing `BACK`;
+   - otherwise the other children of the same `parent` epic (`searchJiraIssuesUsingJql`: `parent = <PARENT> AND summary ~ "BACK"`), matched on the summary text after the prefix.
+   Keep it as `BACK_ID` and read its description (endpoints, attributes, flags, access rights).
+2. **Back PR** — if `BACK_PR` is absent: `gh pr list --repo Agorize/agorize-core --search <BACK_ID> --state all --json number,title,headRefName,state`. Also search with the front `ID`: a core PR named after the front ticket usually holds its translations. Read the description and diff for the contract the front consumes, and note the PR state (an unmerged back means the contract can still move).
+3. **Core worktree** — run `git worktree list` in agorize-core and note the worktree matching `ID` or `BACK_ID`, if any. It is the only place to edit translations.
+
+Nothing found → say so in the plan (« Back : aucun ticket / PR trouvé »), never guess.
 
 ## Step 3 — Analyse the codebase
 
@@ -63,7 +68,7 @@ Fichiers à modifier :
 3. tests/unit/components/Foo/Bar.spec.ts — [tests ajoutés / modifiés]
 
 Réutilisé : [helpers, clés i18n, composants existants]
-Back : [PR agorize-core, worktree core] / aucun
+Back : [ticket BACK, PR agorize-core + état, worktree core] / aucun
 Impact partagé : aucun / [détail]
 Cas limites : [AC]
 Découpage : un seul diff final / étapes (voir ci-dessous)
