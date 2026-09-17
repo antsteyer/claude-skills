@@ -80,6 +80,8 @@ Découpage : un seul diff final / étapes (voir ci-dessous)
 
 Then `AskUserQuestion`: « Le plan te convient ? » with **Approuvé** / **À ajuster**. Re-present the plan after any change. **No code before approval.**
 
+**Jira mode — move the ticket to Ongoing.** Once the plan is approved, if the ticket status is not already `Ongoing`, call `mcp__plugin_atlassian_atlassian__transitionJiraIssue` (`cloudId: agorize.atlassian.net`, `issueIdOrKey: <ID>`, `transitionName: "Start work"`). If that transition is not available from the current status, say so in the report — never pick another transition.
+
 ## Step 5 — Implement
 
 Follow the approved plan. Minimal changes, no unrelated refactor.
@@ -109,6 +111,7 @@ When the plan was split, at the end of each step:
 ## Step 7 — Report
 
 In French:
+- Jira ticket (Jira mode): moved to Ongoing / already Ongoing / transition unavailable
 - Files created / modified
 - Tests: pass / fail count
 - Commits made (step-by-step mode) and what remains uncommitted
