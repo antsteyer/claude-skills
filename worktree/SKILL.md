@@ -6,7 +6,7 @@ description: >-
   `PROD-XXXX` = Jira ticket), proposes a branch name, asks the base branch,
   copies `.env*` and `.tool-versions` files, installs dependencies
   (`bun install` by default; `bundle install` + `yarn install` for
-  agorize-core), and (for GitHub issues) assigns the issue to antsteyer. Use
+  agorize-core), runs the pending migrations for agorize-core, and (for GitHub issues) assigns the issue to the current GitHub user. Use
   when the user says
   "create a worktree", "worktree for #N", "worktree PROD-XXXX", or
   "/worktree".
@@ -110,15 +110,45 @@ Use a generous timeout (e.g. `timeout: 600000`) — `bundle install` and `yarn i
 
 This can take 1–2 minutes; run it in the foreground so the user sees completion before continuing.
 
-### Step 7: Assign GitHub issue (GitHub mode only)
+### Step 7: Run the pending migrations (agorize-core only)
+
+Skip this step for any other repo, and when the dependency install of Step 6 failed.
 
 ```bash
-gh issue edit <ID> --add-assignee antsteyer
+(cd ../agorize-core.worktrees/<branch-name> && bundle exec rake db:migrate)
+```
+
+The worktree uses the same local database as the main repo (`.env*` copied in Step 5), so
+this applies the migrations of the base branch that the local database hasn't run yet.
+If the database does not exist, report the error and stop this step — don't create it:
+choosing between `db:create db:migrate` and `db:schema:load` is the user's call.
+
+`db:migrate` rewrites `db/schema.rb` from the local database, which can carry columns or
+versions from other branches. The worktree must start clean, so revert it:
+
+```bash
+(cd ../agorize-core.worktrees/<branch-name> && git status --short db/schema.rb)
+```
+
+If it shows a change, restore the committed version — this touches only the new worktree,
+never the main repo:
+
+```bash
+(cd ../agorize-core.worktrees/<branch-name> && git restore db/schema.rb)
+```
+
+Then confirm `git status --short` is empty in the worktree (the copied `.env*` and
+`.tool-versions` are gitignored).
+
+### Step 8: Assign GitHub issue (GitHub mode only)
+
+```bash
+gh issue edit <ID> --add-assignee @me
 ```
 
 Skip this step in Jira mode.
 
-### Step 8: Report
+### Step 9: Report
 
 Return a short summary:
 
@@ -126,6 +156,7 @@ Return a short summary:
 - Branch: `<branch-name>` (based on `<base-branch>`)
 - `.env*` and `.tool-versions` copied: yes/no
 - Dependency install: ok/failed (`bun install`, or `bundle install` + `yarn install` for agorize-core)
+- Migrations (agorize-core): applied / nothing pending / failed, and whether `db/schema.rb` was reverted
 - Issue assigned: yes (GitHub mode) / skipped (Jira mode)
 
 Remind the user that subsequent work for this branch must happen from the worktree directory, not the main repo.
@@ -135,5 +166,6 @@ Remind the user that subsequent work for this branch must happen from the worktr
 - **Never** create the worktree inside the main repo (e.g. under `.claude/worktrees/`). It breaks Vitest 4 `setupFiles` resolution and the Vite 8 dev-server watcher (see CLAUDE.md).
 - **Always** ask the base branch — do not assume `origin/master` even when it's the obvious choice.
 - **Never** run `git checkout` in the main repo as a fallback if the worktree creation fails — surface the error to the user.
-- Do not commit, push, or run tests as part of this skill. Setup only.
+- Do not commit, push, or run tests as part of this skill. Setup only. The only command
+  touching the database is `db:migrate` (Step 7); never create, drop or load a schema.
 - If the dependency install fails (`bun install`, or for agorize-core `bundle install` / `yarn install`), report it but do not retry or attempt to fix — the worktree is still valid.
