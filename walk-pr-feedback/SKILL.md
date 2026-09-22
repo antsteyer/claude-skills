@@ -525,10 +525,11 @@ available transitions (the ticket isn't in a state that allows it), say which
 transitions were offered and leave the ticket untouched — don't pick a neighbouring
 status.
 
-Finally, if the fixes changed what the PR actually does — a behaviour added or
-dropped, a renamed component, a removed access right — the description is now stale.
-Say so in one line and offer to update it (both PRs if a companion one was walked);
-don't rewrite it unasked.
+Finally, re-read the description against the pushed diff. If the fixes changed what
+the PR actually does — a behaviour added or dropped, a renamed component, a removed
+access right — the description is now stale: update it directly with
+`gh pr edit <N> --body-file <file>` (both PRs if a companion one was walked), without
+asking first, and say in one line what changed in it.
 
 ## Step 6 — Final report
 
