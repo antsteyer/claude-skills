@@ -35,18 +35,15 @@ Run **format first** so the final diff is what actually gets committed. Format
 rewrites the entire codebase and is slow):
 
 ```bash
-files=$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u | while read -r f; do [ -f "$f" ] && echo "$f"; done )
-code=$(echo "$files" | grep -E '\.(ts|js|vue)$')
-styles=$(echo "$files" | grep -E '\.scss$')
-[ -n "$code" ] && echo "$code" | xargs bunx eslint --fix
-[ -n "$styles" ] && echo "$styles" | xargs bunx stylelint --fix
-[ -n "$code$styles" ] && printf '%s\n%s\n' "$code" "$styles" | grep . | xargs bunx prettier --write
+bash ~/.claude/skills/_shared/format-files.sh
 ```
 
-(`xargs` rather than an unquoted `$code`: zsh does not word-split variables.)
-
-(With yarn/npm, swap `bunx` for `yarn`/`npx`.) Fall back to the full `format`
-script only for a very wide change.
+With no argument it formats every changed and untracked file (eslint, stylelint,
+then prettier, through `bunx`/`yarn`/`npx` per the lockfile). A non-zero exit
+means an error the tools cannot fix — fix it before going further. Never rebuild
+this as a `git diff --name-only | xargs …` one-liner: the rtk hook rewrites that
+`git diff` and pollutes the list. Fall back to the full `format` script only for
+a very wide change.
 
 Then show the post-format diff stat:
 

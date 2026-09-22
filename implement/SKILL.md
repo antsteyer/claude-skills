@@ -95,7 +95,7 @@ Follow the approved plan. Minimal changes, no unrelated refactor.
 
 When the plan was split, at the end of each step:
 1. Run the specs of that step (see Step 6 rules).
-2. Format only the changed files: `bunx eslint --fix`, `bunx stylelint --fix` for `.scss`, `bunx prettier --write`.
+2. Format only the changed files: `bash ~/.claude/skills/_shared/format-files.sh` (non-zero exit = an unfixable error to fix first).
 3. Show the diff summary and the proposed commit message (`PROD-XXXX ` / `#N ` prefix), then ask « Je commite cette étape ? » — **Commiter** / **À ajuster**.
 4. Commit only on **Commiter**. Never push. Approving the plan does not approve the commits.
 

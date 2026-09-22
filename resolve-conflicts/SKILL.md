@@ -118,9 +118,10 @@ agorize cases:
   keep both, keep the alphabetical/nesting order, then run `ac_t` once at the
   end if a locale file changed.
 
-In agorize-front, format each hand-resolved file before staging it
-(`bunx eslint --fix` for `.ts`/`.js`/`.vue`, `bunx stylelint --fix` for
-`.scss`, then `bunx prettier --write`). Then `git add <file>` and
+In agorize-front, format each hand-resolved file before staging it:
+`bash ~/.claude/skills/_shared/format-files.sh <file>` (with the path — during
+a rebase, the no-argument mode would pick up every file of the replayed commit).
+Then `git add <file>` and
 `git rebase --continue` (with `GIT_EDITOR=true` to keep
 the replayed message). If a commit becomes empty because its content already
 landed, `git rebase --skip` is fine — say so in the report.
@@ -150,8 +151,8 @@ Scale to what the conflicts touched:
     `npx vitest run <specs>`.
   - A signature, interface or exported symbol changed upstream → `bun run typecheck`.
   - Files resolved by hand are formatted in Step 3, before their `git add`
-    (`bunx eslint --fix`, `bunx stylelint --fix`, `bunx prettier --write`), so
-    the replayed commit already carries the formatted version.
+    (`_shared/format-files.sh <file>`), so the replayed commit already carries
+    the formatted version.
 - **agorize-core** — do **not** run RSpec locally (slow, needs Elasticsearch
   and Postgres; the CI runs the suite on push). Verify structurally instead:
   - `git range-diff <old-base>..<old-head> origin/<base>..HEAD` (the old tip is

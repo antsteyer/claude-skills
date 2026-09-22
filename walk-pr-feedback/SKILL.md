@@ -380,9 +380,10 @@ point traceable. (If the user asks for a single commit at the end, hold the chan
 and commit once at Step 5 instead.)
 
 1. Format **only the files this point touched**, never the whole project:
-   `bunx eslint --fix <files>` for `.ts`/`.js`/`.vue`, `bunx stylelint --fix <files>`
-   for `.scss`, then `bunx prettier --write <files>`. Then stage explicitly:
-   `git add <file1> <file2>` — never `git add -A` / `git add .`.
+   `bash ~/.claude/skills/_shared/format-files.sh <file1> <file2>` (non-zero exit =
+   an unfixable error to fix first). Then stage explicitly: `git add <file1> <file2>`
+   — never `git add -A` / `git add .`. Write the paths out in both commands, never
+   through a shell variable: zsh does not word-split `$files`.
 2. Prefix from the branch name: `PROD-XXXX-...` → `PROD-XXXX `, `<N>-...` → `#<N> `,
    otherwise no prefix.
 3. Message in English, conventional style (`fix(scope): ...`, `update(scope): ...`),
