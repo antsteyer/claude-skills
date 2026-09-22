@@ -52,7 +52,9 @@ gh search prs --review-requested=@me --state=open --json number,title,repository
   reviewers once I submit a review, so PRs **where I've already left feedback and haven't been
   re-requested are naturally excluded**. The PRs returned are the "awaiting my review" ones.
 - **Drop drafts** (`isDraft == true`).
-- If the result is empty, tell me and stop.
+- If the result is empty, say so, then list my own open non-draft PRs
+  (`gh search prs --author=@me --state=open --json number,title,repository,url,isDraft`) and offer
+  them with **AskUserQuestion** for a self-review — the chosen one runs in targeted-PR mode. None → stop.
 
 ## Step 2 — Let me pick the repos (default = all)
 

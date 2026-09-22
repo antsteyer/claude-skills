@@ -77,9 +77,10 @@ commits that will be replayed + commits that will be dropped):
 | Situation | Command |
 |-----------|---------|
 | Base simply moved forward | `git rebase origin/<base>` |
-| Branch stacked on `<old-parent>` which is now squash-merged into `<base>` | `git rebase --onto origin/<base> <last-commit-of-old-parent> HEAD` |
-| `<base>` was itself rewritten | `git rebase --onto origin/<base> <old-base-tip> HEAD` |
+| Branch stacked on `<old-parent>` which is now squash-merged into `<base>` | `git rebase --onto origin/<base> <last-commit-of-old-parent> <headRefName>` |
+| `<base>` was itself rewritten | `git rebase --onto origin/<base> <old-base-tip> <headRefName>` |
 
+Pass the branch name, never `HEAD`: `git rebase --onto … HEAD` leaves a detached HEAD.
 `<last-commit-of-old-parent>` is the last commit that belongs to the parent
 branch, not to this PR — confirm it from `git log` before using it. When the
 list of commits to drop is not obvious, ask the user rather than guess.

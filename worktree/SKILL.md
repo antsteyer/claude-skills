@@ -48,7 +48,7 @@ Pick `<type>` from the issue labels/summary (`fix`, `feat`, `chore`, `perf`, `re
 Use `AskUserQuestion` to confirm both at once:
 
 1. The proposed branch name (offer to edit).
-2. The base branch — **always ask**, even if `origin/master` is the obvious default. Offer `origin/master` first, then `origin/main`, then "Other".
+2. The base branch — **always ask**, even if `origin/master` is the obvious default. Offer the repo's default branch first (`git symbolic-ref --short refs/remotes/origin/HEAD`, e.g. `origin/master`), then "Other" — never a branch the remote does not have.
 
 Do **not** proceed without explicit confirmation on both.
 
@@ -97,8 +97,11 @@ The install commands depend on the repo.
 ```bash
 (cd ../agorize-core.worktrees/<branch-name> && \
   bundle install && \
-  yarn install)
+  ASDF_NODEJS_VERSION=16.18.1 yarn install)
 ```
+
+`ASDF_NODEJS_VERSION` is forced on the command because the shell exports its own value, which
+overrides `.tool-versions` and runs `yarn install` on a Node the core does not support.
 
 Use a generous timeout (e.g. `timeout: 600000`) — `bundle install` and `yarn install` can each take several minutes on a cold worktree. Run in the foreground so the user sees completion. If Step 5 found no `.tool-versions` to copy (e.g. the main repo lacks one), pin manually first with `asdf set ruby 3.4.9 && asdf set nodejs 16.18.1`.
 

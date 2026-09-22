@@ -30,7 +30,7 @@ No identifiable ticket (empty input, a file name, a truncated paste) → ask the
 ## Step 2 — Gather the context
 
 **Ticket**
-- Jira: `mcp__plugin_atlassian_atlassian__getJiraIssue` with `cloudId: agorize.atlassian.net`, fields `["summary", "description", "issuetype", "status", "parent", "issuelinks"]`, `responseContentFormat: "markdown"`.
+- Jira: `mcp__plugin_atlassian_atlassian__getJiraIssue` with `cloudId: agorize.atlassian.net`, `view: "full"`, `responseContentFormat: "markdown"`. Never narrow it with `fields`: the call then returns `fields: {}` for `parent` and `issuelinks`.
 - GitHub: `gh issue view <ID> --json title,body,labels`, plus the parent issue when the body references one.
 - Read the parent and linked tickets too: their scope may have been narrowed since the ticket was written.
 

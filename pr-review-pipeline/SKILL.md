@@ -61,8 +61,11 @@ stay out of the main conversation, which only receives the report. **Never
 `isolation: "worktree"`** (it creates the worktree inside the repo).
 
 Give each subagent the PR (`<OWNER>/<REPO>#<N>`, URL), the mode, the flow policy and these
-instructions verbatim:
+instructions verbatim, with `<SCRATCH>` replaced by `<your scratchpad>/pr-<N>`:
 
+> Your scratchpad is `<SCRATCH>`: every temp file of the three passes goes under it (the
+> `<scratch>` of each skill), never `/tmp` or `$TMPDIR`.
+>
 > Run three passes on this PR, in order, without stopping between them. For each pass, invoke the
 > skill with the Skill tool, passing the PR URL plus the extra args given below; if the Skill tool
 > is unavailable, read `~/.claude/skills/<skill>/SKILL.md` and apply it as written, single-PR path.
