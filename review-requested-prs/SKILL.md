@@ -37,7 +37,8 @@ If no PR reference is present in the args, fall through to the discovery flow be
 Default is **live**: post pending reviews to GitHub. If the invocation args contain `dry-run` (or
 `--dry-run`), run in **dry-run** instead: do everything read-only (discovery, context, analysis) but
 make **no writes to GitHub at all** — no `POST`/`PUT`/`DELETE`, no `gh pr review`. Output here in the
-chat exactly what *would* have been posted. Steps 1–4c are identical in both modes; only the delivery
+chat exactly what *would* have been posted (reading Jira, GitHub issues and Figma is allowed: they are
+reads). Steps 1–4c are identical in both modes; only the delivery
 (4d) and the report (5) differ. State the active mode up front so I know which one is running.
 
 ---
@@ -105,6 +106,39 @@ end and reports back. Give every subagent the rules below verbatim.
   code they call** (scopes, authorization, serializers, migrations; on agorize-front, store consumers,
   component parents, shared mocks, routes, the companion agorize-core branch) — trace the calls end to end.
 
+### 4a-bis. Check the PR against its spec — ticket and Figma
+The code review alone misses a clean PR that implements the wrong thing. Before reviewing, load what
+the PR is supposed to deliver. The Jira, GitHub and Figma tools are deferred MCP tools: load them with
+one `ToolSearch` call (`select:mcp__plugin_atlassian_atlassian__getJiraIssue,mcp__plugin_atlassian_atlassian__getAccessibleAtlassianResources,mcp__plugin_figma_figma__get_metadata,mcp__plugin_figma_figma__get_design_context,mcp__plugin_figma_figma__get_screenshot`).
+- **Find the ticket**: `PROD-XXXX` in the head branch or the title → Jira (`getJiraIssue`, cloudId from
+  `getAccessibleAtlassianResources`, called once); `#N` → `gh issue view <N> --repo <REPO> --comments`.
+  Fallback: a Jira or issue link in the PR body. No ticket → say so in the review body and go on.
+- **Extract the spec**: acceptance criteria, expected behaviours, edge cases, permissions — from the
+  description **and the ticket comments**, where the later clarifications usually live. A PR on a
+  subtask also reads the parent story when the subtask is thin. Collect every `figma.com` link.
+- **Figma**: the `get_design_context` tool contract requires the `figma:figma-design-to-code` skill
+  to be loaded first — invoke it once (Skill tool) before the first call, and pass
+  `skillNames: "figma-design-to-code"`. For each link, read the layer tree (`get_metadata`, then
+  `get_design_context` on the relevant nodes; `get_screenshot` only to confirm) and diff it element by
+  element against the template. Two link shapes need a detour:
+  - a node that is a whole page or canvas (the ticket often links the page, not the frame):
+    `get_metadata` then overflows into a saved file — parse that XML to find the `section` matching
+    the feature and its frames, and call `get_design_context` on those sub-frames only, never on the
+    canvas;
+  - a FigJam board (`/board/` URL, e.g. an access-rights table): `get_metadata` and
+    `get_design_context` do not support it, read it with `get_screenshot` (raise `maxDimension` for
+    tables).
+
+  Diff against the template: texts, states and variants (empty, loading, error, disabled), displayed conditions,
+  spacing and colours when they are design tokens. Read colours from the raw fills, not from pixels.
+  Not a gap: the icon set (mockups use Material Icons, the app Material Symbols Rounded — never ask to
+  align them), placeholder content, sub-pixel differences.
+- **Map each criterion** to the code that implements it (`path:line`) or mark it missing / different /
+  not verifiable (link inaccessible, behaviour depending on data you cannot see). The PR may cover only
+  part of the ticket on purpose (split front/back, stacked PRs): check the companion agorize-core PR
+  and sibling PRs of the same ticket before calling a criterion missing; when in doubt, ask it as a
+  question rather than asserting it.
+
 ### 4b. Review it as if a junior wrote it
 Analyse the PR as if a junior wrote it. Do a real, thorough review and **also** keep an eye on the
 choices made: simplicity, the "be clear, not clever" rule, security, etc. The list is a reminder of
@@ -112,8 +146,11 @@ things not to overlook, not the scope of the review.
 
 ### 4c. Comment style
 **French**, constructive/mentoring, always explain the **why**.
-**One thread per problem**; order them functional bugs first, then contract/data, then tests and
-conventions. A PR rarely deserves more than ~10 inline comments — past that, group the minor
+**One thread per problem**; order them functional bugs and spec gaps (4a-bis: missing criterion,
+behaviour differing from the ticket, design gap) first, then contract/data, then tests and
+conventions. A spec gap anchors on the line that implements the criterion wrongly; a missing one goes
+in the body. The review body opens with a short spec section: the ticket and Figma links read,
+the criteria checked, and those left unverified with the reason. A PR rarely deserves more than ~10 inline comments — past that, group the minor
 convention points into one comment or into the body. **Actionable only** — a decision to
 make, a test to add, a change to do, a point to confirm. **No purely positive comments**
 ("bon réflexe", "bien joué", "rien à changer") — these are request-changes reviews. Be concise;
@@ -171,7 +208,8 @@ working tree and current branch are exactly as they were before the run.
 
 ## Step 5 — Report back
 
-**Live mode** — a recap table: `Repo#PR | review id | PENDING | nb commentaires | points saillants`.
+**Live mode** — a recap table: `Repo#PR | review id | PENDING | spec | nb commentaires | points saillants`,
+where `spec` names the ticket and Figma read (or `aucun ticket`) and the count of criteria unmet or unverified.
 For each review, verify `state=PENDING` and `submitted_at=null`. Remind me that a pending review is
 visible **only to me** (with a "Pending" badge) until I click **Submit review** on the UI, and that
 the `GET /pulls/<N>/comments` endpoint does **not** list pending comments (use

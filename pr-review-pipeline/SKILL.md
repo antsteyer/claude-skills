@@ -17,7 +17,8 @@ Goal: chain the three PR skills without me relaunching each one, **without a pau
 
 1. `pr-brief` — the reading path (always);
 2. `pr-flow` — the diagram (only when the PR calls for it, see Step 3);
-3. `review-requested-prs` — the PENDING review, fed with the brief **and** the flow.
+3. `review-requested-prs` — the PENDING review, fed with the brief **and** the flow, and checked
+   against the ticket and the Figma mockups.
 
 This skill only orchestrates. Every rule of the three skills (read-only passes, named refs, no
 checkout, `🤖` prefix, PENDING only, never submit) applies unchanged — read them from
@@ -90,9 +91,12 @@ instructions verbatim, with `<SCRATCH>` replaced by `<your scratchpad>/pr-<N>`:
 > `and <flow report>.json (its nodes, edges, facts and blocks are verified context)` — both only
 > if their `head_sha` equals the PR's current head, otherwise ignore them and rebuild the context.
 > `Do not delete the refs/pr-brief refs: the orchestrator cleans them up.`
+> The brief and the flow describe the code, never the intent: the spec check (step 4a-bis — ticket,
+> acceptance criteria, Figma) still runs in full; neither report replaces it.
 >
 > Report back — only this, never the diff or the excerpts you read: the brief path, the flow path
-> or the reason there is none, the companion agorize-core PR number if any, and the review outcome
+> or the reason there is none, the companion agorize-core PR number if any, the spec read (ticket
+> key or `aucun ticket`, Figma links, count of criteria unmet or unverified), and the review outcome
 > (live: review id + state + comment count; dry-run: the full review — body and every inline
 > comment with `path`, `line`, `side`, `body`).
 
@@ -102,8 +106,8 @@ brief alone.
 
 ## Step 4 — Report
 
-One table: `Repo#PR | Brief | Flow | Review`, with the brief and flow file paths (or the reason
-there is no flow), then the review column as `review-requested-prs` Step 5 describes it (live:
+One table: `Repo#PR | Brief | Flow | Spec | Review`, with the brief and flow file paths (or the reason
+there is no flow), the spec read as the subagent reported it, then the review column as `review-requested-prs` Step 5 describes it (live:
 review id, `PENDING`, comment count, key points; dry-run: the rendered review per PR, below the
 table). Remind me that pending reviews stay visible only to me until I submit them on GitHub.
 
