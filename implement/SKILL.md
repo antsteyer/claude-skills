@@ -96,7 +96,7 @@ Follow the approved plan. Minimal changes, no unrelated refactor.
 When the plan was split, at the end of each step:
 1. Run the specs of that step (see Step 6 rules).
 2. Format only the changed files: `bash ~/.claude/skills/_shared/format-files.sh` (non-zero exit = an unfixable error to fix first).
-3. Show the diff summary and the proposed commit message (`PROD-XXXX ` / `#N ` prefix), then ask « Je commite cette étape ? » — **Commiter** / **À ajuster**.
+3. Show a short summary of the changes produced by this step — one bullet per file (or tight group of files): what changed and, when not obvious, why (e.g. "`MainFooter.vue` — lien cookies : classe `optanon-show-settings` en mode OneTrust, Entrée → `ToggleInfoDisplay()`"). Keep it to a few lines; no raw diff dump. Then the test/typecheck results and the proposed commit message (`PROD-XXXX ` / `#N ` prefix), then ask « Je commite cette étape ? » — **Commiter** / **À ajuster**.
 4. Commit only on **Commiter**. Never push. Approving the plan does not approve the commits.
 
 ## Step 6 — Tests
@@ -112,7 +112,7 @@ When the plan was split, at the end of each step:
 
 In French:
 - Jira ticket (Jira mode): moved to Ongoing / already Ongoing / transition unavailable
-- Files created / modified
+- Files created / modified, each with a one-line summary of what changed (same format as the per-step summary)
 - Tests: pass / fail count
 - Commits made (step-by-step mode) and what remains uncommitted
 - Anything left before `/ship`
