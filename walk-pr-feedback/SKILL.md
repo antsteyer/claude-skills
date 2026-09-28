@@ -416,7 +416,7 @@ nothing but replies, skip straight to the posting part.
    exported symbol** — or touched `.ts`/`.vue` code in a way the specs don't cover.
    Skip it when the pass only changed test labels, literals, CSS or comments. Never
    `bun run lint`: the commit hook already linted each commit's staged files, and the
-   local `pre-push` hook runs the full lint on push. Not the test suite either — the
+   local `pre-push` hook lints the pushed changes. Not the test suite either — the
    specs were handled at 4c. If the typecheck fails, report and stop — don't push.
 2. **Ask before pushing.** Unlike `/ship`, invoking this skill is not authorization to
    push — the user gated commits and replies, never push. `AskUserQuestion`:

@@ -52,8 +52,8 @@ git diff --stat
 ```
 
 Then run the typecheck (`bun run typecheck` / `yarn typecheck` / `npm run typecheck`).
-Then decide whether to lint. The project-wide `lint` is left to a local `pre-push`
-hook when one exists — running it here would do the same work twice:
+Then decide whether to lint. Linting is left to a local `pre-push` hook when one
+exists — running it here would do the same work twice:
 
 ```bash
 hooks=$(git config core.hooksPath || echo "$(git rev-parse --git-common-dir)/hooks")
@@ -107,7 +107,7 @@ so the user can see what landed without being prompted.
 
 1. Confirm the branch name and intended remote (typically `origin`).
 2. Run `git push` (add `-u origin <branch>` if no upstream is set). A local
-   `pre-push` hook, when present (Step 1), runs the full `lint` here; if it blocks
+   `pre-push` hook, when present (Step 1), lints the pushed changes here; if it blocks
    the push, report the failure and stop.
 
 ## Step 5 — PR
