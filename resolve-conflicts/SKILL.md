@@ -97,17 +97,23 @@ Merge mode ends with a regular push — no force needed.
 
 ## Step 3 — Replay
 
-Run the chosen command. On each stop:
+Run the chosen command with the three-way conflict style, so every hunk also
+shows the common ancestor and there is no need to rebuild it with `git show`:
 
 ```bash
-git status --short
-git diff --name-only --diff-filter=U
+GIT_EDITOR=true git -c merge.conflictStyle=zdiff3 rebase …   # or merge …
 ```
 
-For each conflicted file, read the conflict hunks **and** the upstream change
-that caused them (`git log -p -1 origin/<base> -- <file>` or
-`git log origin/<base> -- <file>`), then write the merged version. Typical
-agorize cases:
+On each stop, get the whole context in **one** call — every conflicted file's
+hunks with line numbers, plus the latest upstream commit that touched it:
+
+```bash
+bash ~/.claude/skills/_shared/conflict-context.sh origin/<base>
+```
+
+Resolve from that output; read more (`git log origin/<base> -- <file>`, the
+surrounding code) only when a hunk is not self-explanatory. Then write the
+merged version. Typical agorize cases:
 
 - A renamed constant, route, prop or store getter upstream → keep this PR's
   change, applied to the new name. Grep the whole tree for the old name after
@@ -123,8 +129,8 @@ In agorize-front, format each hand-resolved file before staging it:
 `bash ~/.claude/skills/_shared/format-files.sh <file>` (with the path — during
 a rebase, the no-argument mode would pick up every file of the replayed commit).
 Then `git add <file>` and
-`git rebase --continue` (with `GIT_EDITOR=true` to keep
-the replayed message). If a commit becomes empty because its content already
+`GIT_EDITOR=true git -c merge.conflictStyle=zdiff3 rebase --continue` (keeps
+the replayed message and the three-way style for the next stops). If a commit becomes empty because its content already
 landed, `git rebase --skip` is fine — say so in the report.
 
 If the resolution turns into a real design question (both sides changed the
@@ -147,10 +153,17 @@ Never hand-merge them; regenerate:
 
 Scale to what the conflicts touched:
 
-- **agorize-front**
+- **agorize-front** — run the checks **once**, after the last conflict is
+  resolved (never while a fix is still pending: a check started too early has
+  to be rerun).
   - Conflicted or renamed-around `.ts`/`.vue` → run their specs:
     `npx vitest run <specs>`.
-  - A signature, interface or exported symbol changed upstream → `bun run typecheck`.
+  - `bun run typecheck` only when a hand-resolved file is a `.ts`/`.vue` outside
+    `tests/`, or when the upstream diff (`git diff ORIG_HEAD...origin/<base> --stat`)
+    touches `src/interfaces/`, `src/stores/` or an exported symbol. Conflicts
+    limited to specs, mocks or template markup do not need it.
+  - When both apply, run them in parallel in a single call, not one after the other:
+    `bun run typecheck > <scratchpad>/tc.log 2>&1 & npx vitest run <specs> 2>&1 | tail -15; wait; tail -15 <scratchpad>/tc.log`.
   - Files resolved by hand are formatted in Step 3, before their `git add`
     (`_shared/format-files.sh <file>`), so the replayed commit already carries
     the formatted version.
