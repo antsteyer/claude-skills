@@ -40,13 +40,24 @@ For anything ambiguous, pick the most natural reading and state the resolved
 boundary in the final answer (e.g. "depuis lundi 2026-06-30 00:00") so the
 user can correct it if wrong.
 
-## Step 2 — Identify the git identity to filter on
+## Step 2 — Identify the git identities to filter on
+
+The user's commits carry several identities: local commits use
+`git config user.name` (`antsteyer`), while GitHub squash-merges are signed
+with the GitHub profile name and email (`Antoine Steyer
+<antoine.steyer@agorize.com>`). Filtering on `user.name` alone misses every
+squash-merge.
 
 ```bash
 git config user.name
+git config user.email
+gh api user --jq '.login, .name'
 ```
 
-Use this as `--author` in every `git log` call below.
+Build one case-insensitive alternation from all of them plus the
+`@agorize.com` email local part, e.g.
+`-i --author="antsteyer\|Antoine Steyer\|antoine.steyer"`, and use it in every
+`git log` call below.
 
 ## Step 3 — Identify repos to scan
 
@@ -65,12 +76,31 @@ share the same refs/object database, so `--all` from the main repo already
 surfaces commits made in worktree branches):
 
 ```bash
-git -C <repo> log --all --author="<name>" --since="<X>" [--until="<Y>"] \
-  --pretty=format:"%h %ad %s" --date=format:"%Y-%m-%d %H:%M"
+git -C <repo> log --all -i --author="<identities>" --since="<X>" [--until="<Y>"] \
+  --pretty=format:"%h %ad %an %s" --date=format:"%Y-%m-%d %H:%M"
 ```
 
 Group the results by ticket prefix parsed from the subject (`PROD-XXXX` or
 `#N`), preserving branch/topic when the prefix repeats across unrelated work.
+
+## Step 4b — Collect the user's PRs active in the period
+
+`git log` alone is not enough: once a branch is squash-merged and its worktree
+removed, its own commits are no longer reachable from local refs, and the
+squash commit only appears after a fetch. Always cross-check with GitHub, in
+each repo:
+
+```bash
+gh pr list --author @me --state all --search "updated:>=<YYYY-MM-DD of X>" \
+  --json number,title,state,headRefName,createdAt,mergedAt,url
+```
+
+`updated:` is day-granular and GitHub dates are UTC: keep a PR only when its
+`createdAt`, `mergedAt`, or one of its commits' `authoredDate`
+(`gh pr view <n> --json commits`) falls inside the boundary once converted to
+local time. A PR merely updated by someone else (review, bot) without any of
+those in range is not the user's work for the period. Merge these PRs into
+the ticket groups from Step 4, adding a group for any ticket `git log` missed.
 
 ## Step 5 — Check worktree status per ticket/branch
 
