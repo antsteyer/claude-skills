@@ -519,11 +519,12 @@ here rather than recomputed. No `aiAuthored` point → the review was human: lea
 ticket where it is.
 
 When both hold, call `mcp__plugin_atlassian_atlassian__transitionJiraIssue`
-(`cloudId: agorize.atlassian.net`, `issueIdOrKey: <PROD-XXXX>`, `transitionName: "Final Review"`).
-If "Final Review" isn't in the
-available transitions (the ticket isn't in a state that allows it), say which
-transitions were offered and leave the ticket untouched — don't pick a neighbouring
-status.
+(`cloudId: agorize.atlassian.net`, `issueIdOrKey: <PROD-XXXX>`, `transitionName: "P2P review accepted"`).
+"Final Review" is the target **status**, not a transition name: from "P2P Review" the
+transition leading to it is "P2P review accepted" (id `421`). Skip the call when the ticket
+is already in "Final Review". If the ticket is in another status and no available transition
+leads to "Final Review", say which transitions were offered and leave the ticket untouched —
+don't pick a neighbouring status.
 
 Finally, re-read the description against the pushed diff. If the fixes changed what
 the PR actually does — a behaviour added or dropped, a renamed component, a removed
