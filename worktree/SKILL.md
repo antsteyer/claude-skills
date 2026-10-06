@@ -52,6 +52,26 @@ Use `AskUserQuestion` to confirm both at once:
 
 Do **not** proceed without explicit confirmation on both.
 
+**agorize-front only — companion agorize-core worktree.** The front ticket usually needs a core
+worktree too (translations, or a back change on the same ticket). Skip the question when the
+user's argument already says it (« back et front », « avec core »…) and treat it as **Front + core**.
+Otherwise, in the same `AskUserQuestion` call, ask « Worktree agorize-core aussi ? » with:
+- **Front seul**
+- **Front + core** — same branch name, unless a core branch for `ID` already exists.
+
+When **Front + core** is chosen:
+1. In `~/workspaces/agorize/agorize-core`, run `git worktree list | grep <ID> || true` and
+   `git ls-remote --heads origin '*<ID>*'`. An existing worktree for `ID` → reuse it, create
+   nothing. An existing remote branch → check it out (no `-b`).
+2. Otherwise ask its base in a separate `AskUserQuestion` (« Base du worktree core ? »), with at
+   least two real options: `origin/master`, and the core branch of the ticket the front base is
+   stacked on (same `PROD-XXXX` as the front base branch, found with `git ls-remote`) when there is
+   one — else the core branch of the linked `[BACK]` ticket. The core base is chosen on its own:
+   it is **not** the front base.
+3. Run Steps 4 to 7 for agorize-core with `<repo-name>` = `agorize-core`, from the core repo.
+   Never write into a core worktree that belongs to another ticket, even when the front branch is
+   stacked on that ticket.
+
 ### Step 4: Create the worktree
 
 Determine the repo name from the current working directory (e.g. `agorize-front`). Create the worktree as a **sibling** of the repo, never nested inside it:
@@ -157,6 +177,7 @@ Return a short summary:
 
 - Worktree path: `../<repo-name>.worktrees/<branch-name>`
 - Branch: `<branch-name>` (based on `<base-branch>`)
+- Companion core worktree (agorize-front): path + base / reused / not requested
 - `.env*` and `.tool-versions` copied: yes/no
 - Dependency install: ok/failed (`bun install`, or `bundle install` + `yarn install` for agorize-core)
 - Migrations (agorize-core): applied / nothing pending / failed, and whether `db/schema.rb` was reverted

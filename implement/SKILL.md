@@ -88,7 +88,7 @@ Follow the approved plan. Minimal changes, no unrelated refactor.
 
 - **Before writing or editing any `.spec.ts`**, re-read the "Spec Conventions" section of the global CLAUDE.md and the spec-related `feedback_*` memories (tooltips, grouped expects, router in `buildComponent`, mocks…). These are the rules most often corrected on this skill.
 - Update the matching `.spec.ts` alongside every `.vue` / `.ts` change.
-- Translations: only in the agorize-core worktree for this ticket (ask before creating one), `en.yml` + `fr.yml`, reuse existing keys first, then run `ac_t` once.
+- Translations: only in the agorize-core worktree **of this ticket** (`ID`, or `BACK_ID` when the back ticket carries the core branch), `en.yml` + `fr.yml`, reuse existing keys first, then run `ac_t` once. Never write into the core worktree of another ticket, not even the parent the front branch is stacked on. No worktree for this ticket → stop and propose creating one stacked on the parent's core branch (`/worktree <ID>`, « Front + core »); don't create it without approval.
 - Shared serializer, utility or module → stop, list the impact, confirm before editing.
 
 ### Step-by-step mode
