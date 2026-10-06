@@ -21,7 +21,8 @@ description: >-
 - **Never work in the main checkout** and never `git checkout` another branch
   there. Run everything in the worktree that holds the PR branch (Step 1).
 - **Ask before every force push**, even with `--force-with-lease`. A previous
-  authorization does not carry over.
+  authorization does not carry over. A stacked chain (Step 5b) gets one
+  question covering all its branches.
 - Never `git push --force`, never `--no-verify`, never `git rebase -i`.
 - Never resolve a conflict by blindly taking one side (`-X ours/theirs`,
   `git checkout --ours <file>`) on a code file: read both sides and merge the
@@ -144,10 +145,15 @@ Never hand-merge them; regenerate:
 - `bun.lock` → take `<base>`'s version then `bun install`.
 - `yarn.lock` (agorize-core) → take `<base>`'s version then `yarn install`.
 - `Gemfile.lock` → take `<base>`'s version then `bundle install`.
-- `db/schema.rb` → take `<base>`'s version, re-add this PR's tables/columns,
-  set the `version:` to the highest migration timestamp of both sides; then
-  `bin/rails db:migrate` and check `git diff db/schema.rb` only contains this
-  PR's changes.
+- `db/schema.rb` → rebuild it from git, **never with `db:migrate`** (slow, and
+  the local database carries other branches' columns into the file):
+  1. `git checkout origin/<base> -- db/schema.rb` (in the PR's worktree).
+  2. List this PR's own hunks: `git diff <old-base>...ORIG_HEAD -- db/schema.rb`
+     (`<old-base>` = the base tip before the replay, from Step 2).
+  3. Re-apply only those tables/columns/indexes by hand, at their alphabetical
+     place, and set `version:` to the highest migration timestamp of both sides.
+  4. Check `git diff origin/<base>...HEAD -- db/schema.rb` (after `--continue`)
+     shows only this PR's changes. Run `db:migrate` only if the user asks.
 
 ## Step 5 — Verify
 
@@ -174,12 +180,38 @@ Scale to what the conflicts touched:
     original except for the hand-resolved hunks.
   - `git diff --stat origin/<base>...HEAD` only lists this PR's files, and
     `git rev-list --count HEAD..origin/<base>` is `0`.
-  - Migrations in the diff → `bin/rails db:migrate` (Step 4).
+  - `db/schema.rb` in the diff → the check of Step 4 point 4, no `db:migrate`.
 - No conflict at all → no check needed beyond `git log --oneline origin/<base>..HEAD`.
 
 Never run the full suite. Never run `bun run lint`: the `pre-push` hook does.
 
 If a check fails, report it and stop — do not push.
+
+## Step 5b — Replay the stacked children
+
+Rebasing a PR rewrites its commits, so every open PR stacked on it now conflicts in
+turn. Handle the whole chain in the same run, without waiting to be asked:
+
+```bash
+gh pr list --base <headRefName> --state open --json number,headRefName,baseRefName
+```
+
+Trust `baseRefName`, not what the user says about the stack. For each child, in
+stack order (then its own children, recursively):
+
+1. Find its worktree (`git worktree list`). No worktree, or a dirty one → skip that
+   child (and its descendants) and say so in the report; never check it out in the
+   main checkout.
+2. Replay only its own commits onto the new parent tip, from its worktree:
+   `GIT_EDITOR=true git -c merge.conflictStyle=zdiff3 rebase --onto <headRefName> <old-parent-tip> <child-branch>`
+   — `<old-parent-tip>` is the parent's sha before its replay: note it in Step 2
+   (`git rev-parse HEAD`). Don't use `ORIG_HEAD` here: it is per-worktree, so the
+   child's worktree doesn't see the parent's. Check with
+   `git log --oneline <old-parent-tip>..<child-branch>` that it lists only the
+   child's commits.
+3. Resolve and verify exactly as Steps 3 to 5.
+
+No open child → skip this step.
 
 ## Step 6 — Push (with confirmation)
 
@@ -189,6 +221,9 @@ Show in plain text:
 - `git log --oneline origin/<base>..HEAD`,
 - the files resolved by hand and how,
 - the checks run and their result.
+
+With stacked children (Step 5b), show the same block per branch and ask **once**
+for the whole chain. Push the parent first, then each child in stack order.
 
 Then ask (`AskUserQuestion`, in French) whether to push. On yes:
 
@@ -211,5 +246,6 @@ gh pr view <PR#> --json mergeable,mergeStateStatus
 `UNKNOWN` right after the push is normal — report it as such, do not poll.
 
 Final report: PR URL, cause, commits replayed/dropped, files resolved,
-checks, push result, mergeable state. If the push dismissed approvals or
+checks, push result, mergeable state — one line per stacked child, including
+the skipped ones and why. If the push dismissed approvals or
 invalidated review threads, mention it.
