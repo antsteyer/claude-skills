@@ -271,11 +271,17 @@ you when you do.
    confirm the scope with the user. Before deleting an i18n key, a constant or a
    helper, grep its other usages — dropping it because *this* component no longer uses
    it is the classic miss.
-2. Apply the fix, following the project conventions (CLAUDE.md + memory): `mapStores`
+2. **Look for a precedent before writing anything.** Grep the repo for an existing helper,
+   util, `Base*` component, mock or an analogous spec/component that already solves the
+   same thing (`grep -rn "<symbol|pattern>" src/ tests/`), and check the memory files for a
+   matching `feedback_*` rule. Follow it when it exists — inventing a parallel solution is the
+   most common reason a fix gets sent back. Note it as `Modèle suivi : <path:line>` (or
+   `aucun précédent trouvé`) — that line goes into the gate question below.
+3. Apply the fix, following the project conventions (CLAUDE.md + memory): `mapStores`
    not `mapState`/`mapActions`, Options API, BEM classes mirroring the DOM, blank line
    between sibling template elements / none between script option blocks, boolean prop
    shorthand, no `!` non-null assertion, explicit `else`, positive condition first.
-3. Update the matching `.spec.ts` in the same change if behavior moved. Most review
+4. Update the matching `.spec.ts` in the same change if behavior moved. Most review
    feedback is about tests, and these are the misses that come back every time:
    - a literal used twice in the same `it()` → a const; **recount after every added
      assertion** — that's how a second occurrence appears unnoticed
@@ -290,7 +296,7 @@ you when you do.
    - a single `mount(` / `shallowMount(` per file, inside `buildComponent`
    - mocks imported from `tests/helpers/mocks/`, never built in the spec; a test that
      needs `as` casts is the sign the shared mock should be enriched instead
-4. **Only if the point can break something**, run the spec files touched by this
+5. **Only if the point can break something**, run the spec files touched by this
    point: `npx vitest run <path-to-spec>`. Skip it for a change that cannot alter
    behaviour — renaming a local variable or an `it()` label, reordering, a comment,
    extracting a literal into a const. Run it as soon as logic, a conditional template
@@ -301,15 +307,16 @@ you when you do.
    project. Report `PASS` / `FAIL`, and grep the output for `[Vue warn]` — any warning
    is a bug. If it fails, try one fix iteration; if it still fails, revert and hand the
    point back to the user as `needs-manual-review`.
-5. Show `git diff` for the touched files. **For a rendering point** (CSS, layout,
+6. Show `git diff` for the touched files. **For a rendering point** (CSS, layout,
    responsive, visual state) a diff proves nothing: screenshot it yourself (headless
    Chrome, fresh profile) or ask the user for a capture before gating.
 
 **Then gate — always, no exception.** A fix is never committed without this
-`AskUserQuestion`, however small it looks:
+`AskUserQuestion`, however small it looks. Its `question` carries the
+`Modèle suivi : <path:line>` / `aucun précédent trouvé` line from step 2:
 
 - **Valider et commiter** — go to 4h
-- **Corriger d'abord** — the user says what to change; apply, re-run the spec if step 4 calls for it,
+- **Corriger d'abord** — the user says what to change; apply, re-run the spec if step 5 calls for it,
   re-show the diff, ask again
 - **Annuler ce point** — mark the point skipped, next N. Revert with
   `git restore --source=HEAD <files>` **only in commit-per-point mode**, where HEAD
@@ -318,7 +325,9 @@ you when you do.
 
 ### 4d. 🔀 Plusieurs solutions — faire choisir
 
-Don't write code yet. Put the candidates in an `AskUserQuestion`, one option each,
+Don't write code yet. Run the precedent search of 4c step 2 first: when the codebase
+already does it one way, that way is a candidate and its `path:line` is in its
+`description`. Put the candidates in an `AskUserQuestion`, one option each,
 using the option `preview` field to show the actual snippet side by side. Two to
 three candidates, each with its trade-off in the `description`. Put your own
 recommendation first, suffixed `(Recommandé)`.
