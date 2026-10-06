@@ -185,9 +185,9 @@ rendered in the chat (see Step 5). Resolving line numbers still matters — they
   }
   ```
 - Before posting, grep the payload and confirm **every** `body` (review + each comment) starts with
-  `🤖`. Fixing it after the fact is expensive: `PATCH /pulls/comments/<id>` returns **404 on pending
-  review comments** (they aren't addressable until submitted), so the only remedy is
-  `DELETE /pulls/<N>/reviews/<review_id>` then re-POST the whole payload.
+  `🤖`. Fixing an inline body after the fact is expensive: `PATCH /pulls/comments/<id>` returns
+  **404 on pending review comments**, so rewording one means re-posting the whole review (see
+  "Amend a pending review" below).
 - An inline comment can only anchor on a line **inside a hunk** of the PR diff (added or context
   line). A finding on a file outside the diff, or on a line no hunk shows, goes into the review
   `body` with its `path:line` — never as an inline comment (that is the usual 422).
@@ -199,6 +199,17 @@ rendered in the chat (see Step 5). Resolving line numbers still matters — they
   is exactly what keeps the review a draft; either one would submit it immediately.
 - On `422 "line could not be resolved"`: fix the line number (or move that point into `body`) and
   re-post the whole payload. Iterate until `state=PENDING`. Delete the payload file afterwards.
+
+**Amend a pending review** (when I ask to drop or change a point after posting) — pick the narrowest
+call, never delete the whole review by reflex:
+- **Drop one inline comment** → `gh api --method DELETE repos/<REPO>/pulls/comments/<comment_id>`.
+  Read the id from `gh api repos/<REPO>/pulls/<N>/reviews/<review_id>/comments --jq '.[] | "\(.id) \(.path) \(.body[:60])"'`.
+  The review stays PENDING with the same id; the other comments are untouched.
+- **Change the review body** → `gh api --method PUT repos/<REPO>/pulls/<N>/reviews/<review_id> -f body='🤖 ...'`
+  (write the body to a file and pass `-F body=@<file>` when it holds quotes or apostrophes).
+- **Reword an inline comment** → the only case that needs `DELETE /pulls/<N>/reviews/<review_id>` and
+  a re-POST of the whole payload, since a pending inline comment can't be patched.
+After any amendment, re-list the review's comments and confirm `state=PENDING`.
 
 ### 4e. Cleanup
 After the subagents finish, delete the `refs/pr-brief/<N>` refs **this run fetched** (never a ref
