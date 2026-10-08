@@ -95,6 +95,7 @@ Follow the approved plan. Minimal changes, no unrelated refactor.
 
 When the plan was split, at the end of each step:
 1. Run the specs of that step (see Step 6 rules).
+   On the **last** step, also run the Chrome check (Step 6b) before showing the summary.
 2. Format only the changed files: `bash ~/.claude/skills/_shared/format-files.sh` (non-zero exit = an unfixable error to fix first).
 3. Show a short summary of the changes produced by this step — one bullet per file (or tight group of files): what changed and, when not obvious, why (e.g. "`MainFooter.vue` — lien cookies : classe `optanon-show-settings` en mode OneTrust, Entrée → `ToggleInfoDisplay()`"). Keep it to a few lines; no raw diff dump. Then the test/typecheck results and the proposed commit message (`PROD-XXXX ` / `#N ` prefix), then ask « Je commite cette étape ? » — **Commiter** / **À ajuster**.
 4. Commit only on **Commiter**. Never push. Approving the plan does not approve the commits.
@@ -108,12 +109,21 @@ When the plan was split, at the end of each step:
 - Treat every `[Vue warn]` as a failure.
 - On failure, fix the root cause; report anything left unfixed and why.
 
+## Step 6b — End-to-end check in Chrome
+
+Run it **once, at the end of the last step** (or of the single diff), after the specs are green and before the report / the commit question. Follow `~/.claude/skills/browser-check/SKILL.md`, with:
+
+- **Code under test**: front = the current worktree; back = the agorize-core worktree of this ticket (`ID` or `BACK_ID`), otherwise the main agorize-core checkout.
+- **Criteria**: the AC of the ticket and the Figma frames read in Step 3.
+- **On a problem introduced by the change**: a clear-cut bug or a11y defect → fix it right away (code + spec), re-run the affected spec, re-check in the browser. Doubt about the expected behaviour or the scope → ask before touching anything. A pre-existing problem → don't fix it, list it in the report and offer a GitHub issue.
+
 ## Step 7 — Report
 
 In French:
 - Jira ticket (Jira mode): moved to Ongoing / already Ongoing / transition unavailable
 - Files created / modified, each with a one-line summary of what changed (same format as the per-step summary)
 - Tests: pass / fail count
+- Chrome check (Step 6b): what was tested, fixed, still open — or why it was skipped
 - Commits made (step-by-step mode) and what remains uncommitted
 - Anything left before `/ship`
 

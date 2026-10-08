@@ -79,8 +79,9 @@ The PRs I keep after this step are the final work list.
 
 Run the PRs concurrently when there are several: one subagent per PR. Reading the branch through a
 named ref (4a) needs no checkout, so PRs don't collide — **never use `isolation: "worktree"`** (it
-creates the worktree inside the repo, which breaks Vitest and Vite). Each subagent owns one PR end to
-end and reports back. Give every subagent the rules below verbatim.
+creates the worktree inside the repo, which breaks Vitest and Vite). Each subagent owns one PR from
+4a to 4d and reports back; the Chrome check (4d-bis) is run afterwards by the orchestrator, one PR at a
+time, since every PR needs the same ports and the same browser. Give every subagent the rules below verbatim.
 
 ### 4a. Build context — and read what's already been handled
 - `gh pr view <N> --repo <REPO> --json title,body,baseRefName,headRefName,files,additions,deletions`
@@ -211,16 +212,44 @@ call, never delete the whole review by reflex:
   a re-POST of the whole payload, since a pending inline comment can't be patched.
 After any amendment, re-list the review's comments and confirm `state=PENDING`.
 
+### 4d-bis. Check it running in Chrome
+
+Run by the orchestrator, **one PR at a time**, after the subagent of that PR has finished, unless the
+args contain `no-browser`. Dry-run keeps it: it only reads. Follow
+`~/.claude/skills/browser-check/SKILL.md`, with:
+
+- **Code under test** — the PR's head, never a main checkout's working tree:
+  - agorize-front PR: when I already have a worktree of the ticket that is clean and at the PR's head
+    (`git worktree list`, `git status`, `git rev-parse HEAD`), run it as is; otherwise the sibling
+    worktree of 4a (`git worktree add --detach ../agorize-front.worktrees/pr-review-<N> refs/pr-brief/<N>`),
+    with the `.env*` copied from the main checkout and `bun install`.
+  - back: the companion agorize-core PR (same ticket) → my core worktree of the ticket if it is at
+    that PR's head, otherwise a sibling detached worktree `../agorize-core.worktrees/pr-review-<N>`
+    on its head with `bundle install`; no companion PR → the main agorize-core checkout as it is.
+  - agorize-core PR: swap the roles — core on the PR's code, front from the main checkout as it is.
+- **Criteria**: those mapped in 4a-bis, and the Figma frames read there.
+- **Findings** — never fix anything. Each problem introduced by the PR becomes a review point, same
+  style as 4c (French, `🤖`, the why, a suggested fix with the `path:line` responsible). The pending
+  review already exists at this stage, so add them to its **body** in a « Test dans l'application »
+  section through `PUT` (see "Amend a pending review"), with the states tested and those not
+  reachable locally. A problem whose cause I cannot pin in the code goes in as a question. Doubt about
+  the expected behaviour → ask me before writing it. Pre-existing problems stay out of the review:
+  list them in the report and offer a GitHub issue. In dry-run, append the section to the rendered
+  output.
+
+Then move on to the next PR.
+
 ### 4e. Cleanup
 After the subagents finish, delete the `refs/pr-brief/<N>` refs **this run fetched** (never a ref
 reused from `pr-brief`/`pr-flow`, nor one another pass running alongside still reads), remove any sibling
-worktree (`git worktree remove --force ...`, `git worktree prune`), and confirm the local clone's
+worktree in agorize-front and agorize-core (`git worktree remove --force ...`, `git worktree prune`), and confirm the local clone's
 working tree and current branch are exactly as they were before the run.
 
 ## Step 5 — Report back
 
-**Live mode** — a recap table: `Repo#PR | review id | PENDING | spec | nb commentaires | points saillants`,
-where `spec` names the ticket and Figma read (or `aucun ticket`) and the count of criteria unmet or unverified.
+**Live mode** — a recap table: `Repo#PR | review id | PENDING | spec | test app | nb commentaires | points saillants`,
+where `test app` is `ok`, the count of problems found in Chrome, or `non testé` with the reason;
+and `spec` names the ticket and Figma read (or `aucun ticket`) and the count of criteria unmet or unverified.
 For each review, verify `state=PENDING` and `submitted_at=null`. Remind me that a pending review is
 visible **only to me** (with a "Pending" badge) until I click **Submit review** on the UI, and that
 the `GET /pulls/<N>/comments` endpoint does **not** list pending comments (use
