@@ -64,6 +64,9 @@ it is, is fine.
 - Start everything in the **same turn** (parallel background commands), then a single background
   readiness loop on both ports (`until` + `lsof`), never `sleep` polling. Use that wait to run the
   psql lookups.
+- **Warm up the SSR** once both ports listen: `curl -s -o /dev/null --max-time 120 http://localhost/web/en/<first screen>`.
+  The first SSR request takes ~10 s while Vite compiles, and a Chrome `navigate` on a cold server
+  silently leaves the tab on `chrome://newtab` (every following call then fails on a chrome:// URL).
 - Always browse through nginx: `http://localhost/web/<locale>/...`, never `localhost:8080`.
 
 ## 3. Test data

@@ -16,6 +16,14 @@ results.
 | Team workspace (SPA project view) | `/web/<lang>/challenges/<challenge_id>/teams/<team_id>/<tab>` | Tabs: `details`, `members`, `mentors`, `workspace` (shared files). `challenge_id` is the numeric id. Only reachable as a team member (`owned_teams` endpoints answer 404 otherwise) → impersonate a member |
 | Public challenge page | `/web/<lang>/challenges/<slug>` | |
 
+Swap `<lang>` (`en` / `fr`) to check both translations; the FR pass doubles as the data-restoring pass.
+
+## Toasts
+
+`$addSuccessToast` / `$addDangerToast` render in a `role="alert"` (`aria-live="assertive"`) region at
+the top centre. Read the text with `javascript_tool` right after the action; zoom on the region
+`[400, 0, 920, 70]` for the visual — a screenshot taken under 1 s catches it mid-animation.
+
 ## Login as
 
 - Faster than the UI: from any `localhost/web` page logged in as the super admin, one `javascript_tool` call:
@@ -28,7 +36,8 @@ results.
   ```
   Get the uuid with `psql -d agorize_development -Atc "SELECT uuid FROM users WHERE email = '<email>'"`.
   Back to the super admin: `fetch('/en/api/v2/users/login_as', { method: 'DELETE', credentials: 'include' })` → 204.
-  Not verified yet as a direct call: if it answers 401/403/422, fall back to the UI and note why here.
+  Verified: POST → 201, DELETE → 204. Switching role = DELETE then POST in the same call; then
+  navigate to the screen (the open page does not refresh by itself).
 - UI path: users index → search the email → row « Actions » → « Login as ». While impersonating, a
   black banner « You are connected as X » shows a « Back to my admin space » button.
 - 403 while already impersonating: stop the current impersonation first.
