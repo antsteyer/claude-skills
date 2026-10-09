@@ -65,8 +65,10 @@ it is, is fine.
   readiness loop on both ports (`until` + `lsof`), never `sleep` polling. Use that wait to run the
   psql lookups.
 - **Warm up the SSR** once both ports listen: `curl -s -o /dev/null --max-time 120 http://localhost/web/en/<first screen>`.
-  The first SSR request takes ~10 s while Vite compiles, and a Chrome `navigate` on a cold server
+  The first SSR request takes 10–20 s while Vite compiles, and a Chrome `navigate` on a cold server
   silently leaves the tab on `chrome://newtab` (every following call then fails on a chrome:// URL).
+  Even warmed up, the first `navigate` can return before the page is usable: when a call fails on a
+  chrome:// URL, `tabs_context_mcp` shows the real title once the page has loaded, then retry.
 - Always browse through nginx: `http://localhost/web/<locale>/...`, never `localhost:8080`.
 
 ## 3. Test data
@@ -106,12 +108,50 @@ it is, is fine.
    visible focus, activation with Enter / Space, arrows inside menus, Escape closes overlays, and
    the focus returns to the trigger after closing a menu or a modal.
 4. **Screen reader coherence** — run `a11y-audit.js` in one `javascript_tool` call on each
-   meaningful state (menu open, dialog open, after an action). It reports the focused element,
+   meaningful state (menu open, dialog open, after an action), with `SCOPE` set to the feature's
+   container so repeated controls elsewhere on the page do not drown the result. It reports the focused element,
    dialogs (role, `aria-modal`, name, and a `MISSING #id` when `aria-labelledby` points nowhere),
    menu items, popup triggers without `aria-expanded`, duplicated or missing accessible names, live
    regions and headings. Then judge: names unique enough to tell repeated items apart, labels on
    fields, async feedback (toasts, errors, success) announced, what is announced matches what is
    displayed.
+5. **Responsive** — when the change touches a layout, a template or styles. Two sets of thresholds
+   coexist: the SCSS breakpoints (`sm` 576, `md` 768, `lg` 992, `xl` 1200, `xxl` 1700) and the JS ones
+   of the `WindowWidth` mixin (`isMobileSize` < 768, `isTabletSize` < 992). Check three widths: 375
+   (mobile), 800 (JS tablet, SCSS `md`) and 1280 (desktop). Add the exact edge of any breakpoint the
+   diff uses (`d-md-*`, `col-lg-*`, `media-breakpoint-*`, `isMobileSize`), on both sides of it.
+   - Before the first resize, record `outerWidth` / `outerHeight` / `innerWidth` / `document.visibilityState`
+     with `javascript_tool`. `resize_window` reports success but does nothing while the tab is hidden
+     (another tab active in its window, window minimised): with `visibilityState` not `visible`, ask the
+     user to click the tab, then retry.
+   - `resize_window` sizes the window, not the viewport: pass the target plus `outerWidth - innerWidth`
+     (56 px in the first run), then read `window.innerWidth` and trust that
+     value.
+   - Chrome does not shrink a window below a ~570 px viewport: 375 goes through the headless fallback
+     of `app-map.md` with `viewport`. A 570–767 viewport still covers the JS mobile branch, not the
+     SCSS `xs` one.
+   - At each width: no horizontal scroll
+     (`document.documentElement.scrollWidth > document.documentElement.clientWidth`), no clipped or
+     overlapping text, controls still reachable, overlays fitting in the viewport. One screenshot per
+     width.
+   - The `WindowWidth` mixin is `null` during SSR and until `mounted`: a mobile screen first renders the
+     desktop branch. Reload at mobile width to catch a visible flash, not only a live resize.
+6. **SSR** — only when the screen is server-rendered: a route outside `UserAuthenticationGuard` (it wraps
+   its children in `<ClientOnly>`, so nothing under it renders on the server), a component of
+   `MainLayout` outside `<ClientOnly>`, or a diff touching `serverPrefetch`, `entry-server.ts`,
+   `entry-client.ts`, or `window` / `document` / `localStorage` outside `mounted`.
+   - Server HTML: `curl -s -w '%{http_code}' http://localhost/web/<lang>/<url>` → 200, and the feature's
+     content is in the HTML (anonymous request: this checks the logged-out render).
+   - Server log: no `[SPA VUE ERROR]` in the output of the front background task (the SSR `errorHandler` logs
+     every render error there).
+   - Hydration: open the URL by direct navigation (a client-side route change skips hydration), then
+     `read_console_messages` with the pattern `Hydration|mismatch`.
+   - Network after that direct load: a request the server already made in `serverPrefetch` must not be
+     sent again by the client (the Pinia state is handed over through `__INITIAL_STATE_PINIA__`). List
+     them with `performance.getEntriesByType('resource')` filtered on `initiatorType` `fetch` /
+     `xmlhttprequest`: it works without arming anything, unlike `read_network_requests`, which only
+     tracks from its first call (call it once before the reload when it is needed).
+   - `read_console_messages` does catch the messages logged during the page load.
 
 **Pitfalls**
 - Wait ~1 s after closing an overlay before asserting it is gone: PrimeVue keeps it in the DOM during
@@ -131,7 +171,8 @@ it is, is fine.
 
 ## 6. Wrap up
 
-1. Return to the super admin if impersonating, close my tabs, stop the servers I started (exit code
+1. Return to the super admin if impersonating, put the window back to the size recorded before
+   the responsive pass, close my tabs, stop the servers I started (exit code
    143 on their background tasks is the expected kill).
 2. **Enrich `app-map.md`** with what this run discovered: new URLs, a flow that worked, a fallback
    that was needed, a reusable psql query, a fixture worth keeping. Fix any entry that turned out

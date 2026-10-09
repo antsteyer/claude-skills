@@ -1,7 +1,7 @@
 # App map — local Agorize stack
 
 Navigation notes learned during runs, to go straight to a screen by URL instead of clicking through
-menus. Read it at the start of a run; append what a run discovers (section 5 of `SKILL.md`). Keep only
+menus. Read it at the start of a run; append what a run discovers (section 6 of `SKILL.md`). Keep only
 stable facts: URL patterns, flows, selectors, where a role is found. Never dated data, never test
 results.
 
@@ -16,7 +16,7 @@ results.
 | Team workspace (SPA project view) | `/web/<lang>/challenges/<challenge_id>/teams/<team_id>/<tab>` | Tabs: `details`, `members`, `mentors`, `workspace` (shared files). `challenge_id` is the numeric id. Only reachable as a team member (`owned_teams` endpoints answer 404 otherwise) → impersonate a member |
 | Public challenge page | `/web/<lang>/challenges/<slug>` | |
 
-Swap `<lang>` (`en` / `fr`) to check both translations; the FR pass doubles as the data-restoring pass.
+Swap `<lang>` (`en` / `fr`) to check both translations.
 
 ## Toasts
 
@@ -53,6 +53,8 @@ the top centre. Read the text with `javascript_tool` right after the action; zoo
   ```
 - Members of a team: `memberships.member_id` (not `user_id`) → `users`.
 - Teams have no `challenge_id`: go through `teams.step_id` → `steps.challenge_id`.
+- Challenges have no `slug` column: it lives in `challenge_translations.slug`, one row per locale
+  (`SELECT locale, slug FROM challenge_translations WHERE challenge_id = <id>`).
 
 ## Known test fixtures
 
@@ -60,4 +62,20 @@ Re-check them with psql before use: other sessions change local data.
 
 | Use | Fixture |
 |---|---|
+| Public challenge page, server-rendered (SSR checks) | challenge 244, `/web/en/challenges/billie-challenge-test-alt` (`fr` slug: `billie-challenge-test`) |
 | Team workspace with a leader and 3 members (SPA flag on) | team 7568 « Billie in a team », challenge 244; leader `billie+test@agorize-test.com`, members `mathieu.coquelet+test@agorize.com`, `billie+api@test.com` |
+
+## Selectors
+
+- `BaseMenuPopUpButton` triggers: `button[aria-controls^="dropdown-menu-"]`. The header profile menu is one
+  (`aria-label="Open my profile menu"`). The member cards of the team workspace `members` tab have an icon-only
+  « Actions » trigger: match it on `[aria-label="Actions"]`, its text content is empty.
+
+## Headless fallback (no Claude in Chrome tools)
+
+- When the `mcp__claude-in-chrome__*` tools are absent, `bun add playwright-core` in a scratch dir under `/tmp`
+  and launch the cached Chromium (`~/Library/Caches/ms-playwright/chromium-*/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`)
+  with `executablePath`. Keep the script in a separate dir and import playwright by absolute path.
+- Login: fill `input[name="user[email]"]` / `input[name="user[password]"]` on the legacy sign-in page, press Enter.
+- The first `goto` to an SPA screen right after the `login_as` POST can fail with `net::ERR_ABORTED` (client-side
+  redirect): catch it and navigate again. Wait for `networkidle` before looking for card-level controls.
