@@ -7,7 +7,8 @@ description: >-
   and screen reader pass. Shared procedure called by /implement (Step 6b) and
   /review-requested-prs (4d-bis); also usable on its own when the user says
   "teste la feature dans Chrome", "vérifie dans le navigateur", or
-  "/browser-check [PR# | ticket]".
+  "/browser-check [PR# | ticket] [--demo]". With --demo (or "avec une démo"),
+  also delivers a GIF of the complete feature at the end of the tests.
 ---
 
 # /browser-check — End-to-end check in Chrome
@@ -22,6 +23,11 @@ Two companion files live next to this one:
 - `app-map.md` — URLs, the login-as shortcut, psql lookups and known fixtures. **Read it first**, and
   enrich it at the end of the run (section 6).
 - `a11y-audit.js` — a one-call accessibility audit of the current page state.
+
+## Options
+
+- `--demo` — once the checks are done, record a GIF of the complete feature as a deliverable
+  (section 5bis). Also triggered by « avec une démo », « fais-moi une vidéo / un gif ». Off by default.
 
 ## When to run it
 
@@ -169,6 +175,32 @@ it is, is fine.
 - One `javascript_tool` call answers more than several screenshots: prefer it for states and
   attributes.
 
+## 5bis. Demo GIF (`--demo` only)
+
+A separate take after the checks, never mixed with them: the checks need audits, `javascript_tool`
+calls and retries that would clutter the video.
+
+1. **Script** — the nominal path of the feature from its entry screen to its visible outcome
+   (e.g. open the menu → action → modal → confirm → redirect or success toast). Add the one variant
+   that matters only when it is the point of the feature (e.g. an empty state). Keep it under ~20
+   actions: `gif_creator` stops at 50 frames.
+2. **Data** — when the path is irreversible (delete, send, submit…), create a dedicated local fixture
+   for the take (same role, same state) rather than reusing the one the checks used, and ask before
+   touching existing data, as in section 4. Write down what the take deletes or changes for the
+   report.
+3. **Stage** — impersonate the role, navigate to the entry screen and wait until it is fully loaded
+   (no skeleton) **before** starting the recording, so the first frame is meaningful.
+4. **Record** — `gif_creator` `start_recording`, then one screenshot right away (first frame), then
+   the script in `browser_batch` with a short `wait` (~1 s) and a screenshot after each step that
+   changes the screen; `find` refs rather than coordinates. Two screenshots on the final state, then
+   `stop_recording`.
+5. **Export** — `export` with `download: true`, `filename: "<feature>_demo.gif"` (snake_case, named
+   after the feature, not the branch) and `options: { showWatermark: false }`. Chrome saves it to the
+   user's Downloads folder, which the sandbox cannot read: report the filename, frame count and size
+   from the export result, and do not try to open the file.
+6. A failed or confusing take → `clear`, reset the data, record again. Never deliver a take that shows
+   an error the feature did not intend.
+
 ## 6. Wrap up
 
 1. Return to the super admin if impersonating, put the window back to the size recorded before
@@ -178,4 +210,5 @@ it is, is fine.
    that was needed, a reusable psql query, a fixture worth keeping. Fix any entry that turned out
    wrong. Stable facts only.
 3. Report in a few lines: what was tested, the screenshots, what the change got wrong, the
-   pre-existing problems, what could not be tested and why.
+   pre-existing problems, what could not be tested and why. With `--demo`: the GIF filename, its
+   frame count and size, what it shows step by step, and the data the take created or changed.
