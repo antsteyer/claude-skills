@@ -56,6 +56,30 @@ the top centre. Read the text with `javascript_tool` right after the action; zoo
 - Challenges have no `slug` column: it lives in `challenge_translations.slug`, one row per locale
   (`SELECT locale, slug FROM challenge_translations WHERE challenge_id = <id>`).
 
+- Participation questions live in `questions` with `type = 'Questions::Participation'` (`questions.step_id`);
+  there is no `participation_questions` table.
+- Owned teams whose participation is still editable (solo first), with a member email:
+  ```sql
+  SELECT t.id, s.challenge_id, c.max_team_size, min(u.email)
+  FROM teams t JOIN steps s ON s.id = t.step_id JOIN challenges c ON c.id = s.challenge_id
+  JOIN memberships m ON m.team_id = t.id JOIN users u ON u.id = m.member_id
+  WHERE NOT c.archived AND NOT c.template AND NOT t.failed AND s.end_at > now()
+    AND EXISTS (SELECT 1 FROM questions q WHERE q.step_id = s.id AND q.type = 'Questions::Participation')
+  GROUP BY 1, 2, 3 ORDER BY (c.max_team_size = 1) DESC, t.id DESC LIMIT 10;
+  ```
+
+## Backend boot pitfalls
+
+- Any pending migration makes every Rails request answer 500 (`ActiveRecord::PendingMigrationError`), even one
+  unrelated to the branch. Run `bin/rails db:migrate:status | grep down` before starting the servers, and ask
+  the user when a pending migration cannot run on the dev data.
+- A fresh agorize-core worktree has no `node_modules`: the legacy sign-in page then answers 500
+  (`File to import not found: bootstrap-select/...`). Run
+  `ASDF_NODEJS_VERSION=16.18.1 PATH="$HOME/.asdf/installs/nodejs/16.18.1/bin:$PATH" yarn install --frozen-lockfile`
+  in the worktree before starting Rails.
+- `db:migrate` run from a worktree rewrites `db/schema.rb` with local DB drift (extensions, column order):
+  `git checkout -- db/schema.rb` afterwards when the branch's schema change is already committed.
+
 ## Known test fixtures
 
 Re-check them with psql before use: other sessions change local data.
@@ -66,6 +90,9 @@ Re-check them with psql before use: other sessions change local data.
 | Team workspace with a leader and 3 members (SPA flag on) | team 7568 « Billie in a team », challenge 244; leader `billie+test@agorize-test.com`, members `mathieu.coquelet+test@agorize.com`, `billie+api@test.com` |
 
 ## Selectors
+
+- Project view overview « … » menu: the first ArrowDown after opening focuses the first item; items are
+  `[role=menuitem]`. The shared confirmation modal is `[role=alertdialog]` with focus on « Cancel ».
 
 - `BaseMenuPopUpButton` triggers: `button[aria-controls^="dropdown-menu-"]`. The header profile menu is one
   (`aria-label="Open my profile menu"`). The member cards of the team workspace `members` tab have an icon-only
