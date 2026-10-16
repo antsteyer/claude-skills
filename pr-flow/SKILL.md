@@ -124,7 +124,9 @@ A fact's `output` is never typed: `B.ran` executes the command and embeds what i
 (e.g. `~/.claude/skills/reports/PROD-7715-agorize-front-3334-flow`) — same naming as `pr-brief`,
 never built by hand.
 
-`mkdir -p` the directory first, and keep the file (see the end of this page). The shape below
+`mkdir -p` the directory first, and keep the file (see the end of this page). Then run
+`python3 <skill-dir>/../pr-brief/blocks.py prune` once — it deletes the pages of PRs already merged
+or closed. The shape below
 is shown as JSON; the builder script writes it as a Python dict, so `true`/`false`/`null`
 become `True`/`False`/`None` there.
 
