@@ -29,9 +29,6 @@ A PR is rarely walked in one sitting — the same PR typically comes back over s
 sessions and several days. Everything that survives a session lives in the **state
 file** (Step 2d), never only in context.
 
-Sibling skill: `/analyze-pr-feedback` is the read-only overview. Use this one when
-the user actually wants the feedback *handled*.
-
 ## Step 1 — Identify the PR
 
 If a PR number was passed as argument, use it. Otherwise detect from the branch:
@@ -569,8 +566,7 @@ next pass resumes from there without the user having to renumber anything.
 ## Rules
 
 - **Allowed after validation of that specific point**: file edits, commits, push,
-  posted replies, thread resolution. This is the mutating skill of the pair — don't
-  inherit `/analyze-pr-feedback`'s read-only caution.
+  posted replies, thread resolution.
 - **Never** post a reply the user hasn't validated, resolve a thread whose reply
   wasn't approved, push mid-loop, or push at all without asking first — invoking this
   skill authorizes the loop, not the push.
