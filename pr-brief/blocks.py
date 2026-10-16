@@ -12,6 +12,10 @@ CLI (each command prints one JSON block on stdout):
       PR's head branch — `PROD-7715-feat/x` → PROD-7715, `3068-chore/x` or `#3068-x` → GH-3068,
       anything else → no prefix.
 
+  blocks.py prune
+      Deletes the pages (.json + .html) of the reports directory whose PR is merged or closed.
+      Pages without a PR number (> 0) and PRs whose state can't be read are kept.
+
   blocks.py hunks <pr.diff> [<path>]
       Lists the files of the diff, or the hunks of <path> with their index and @@ header —
       the indexes `--hunk` / `hunks=[…]` expect.
@@ -85,6 +89,33 @@ def report_path(repo, number, kind, branch=None):
     ticket = ticket_of(branch)
     name = f"{repo.split('/')[-1]}-{number}-{kind}"
     return os.path.join(REPORTS_DIR, f"{ticket}-{name}" if ticket else name)
+
+
+def prune_reports():
+    """Delete the pages whose PR is MERGED or CLOSED; return the deleted paths."""
+    states, deleted = {}, []
+    for name in sorted(os.listdir(REPORTS_DIR)) if os.path.isdir(REPORTS_DIR) else []:
+        if not name.endswith(".json"):
+            continue
+        stem = os.path.join(REPORTS_DIR, name[:-5])
+        try:
+            with open(stem + ".json") as fh:
+                spec = json.load(fh)
+            key = (spec["repo"], int(spec["number"]))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if key[1] <= 0:
+            continue
+        if key not in states:
+            res = subprocess.run(["gh", "pr", "view", str(key[1]), "--repo", key[0], "--json", "state",
+                                  "--jq", ".state"], capture_output=True, text=True)
+            states[key] = res.stdout.strip() if res.returncode == 0 else None
+        if states[key] in ("MERGED", "CLOSED"):
+            for ext in (".json", ".html"):
+                if os.path.exists(stem + ext):
+                    os.remove(stem + ext)
+                    deleted.append(stem + ext)
+    return deleted
 
 
 class Blocks:
@@ -254,6 +285,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("report")
     r.add_argument("repo"); r.add_argument("number"); r.add_argument("kind", choices=["brief", "flow"])
+    sub.add_parser("prune")
     h = sub.add_parser("hunks")
     h.add_argument("diff_path"); h.add_argument("path", nargs="?")
     d = sub.add_parser("diff")
@@ -272,6 +304,8 @@ def main():
 
     if a.cmd == "report":
         print(report_path(a.repo, a.number, a.kind))
+    elif a.cmd == "prune":
+        print("\n".join(prune_reports()))
     elif a.cmd == "hunks":
         b = Blocks(diff_path=a.diff_path)
         rows = b.hunks(a.path) if a.path else list(enumerate(b.paths()))

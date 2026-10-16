@@ -148,7 +148,8 @@ Write `<report>.json`, where `<report>` is the path printed by
 from the PR's head branch (`PROD-XXXX-…` → `PROD-XXXX`, `3068-…` or `#3068-…` → `GH-3068`, no
 ticket → no prefix), so every page of a ticket, front and core, sorts together; never build the
 name by hand. `mkdir -p` the directory first; keep the file: it allows a re-render without redoing
-the analysis.
+the analysis. Then run `python3 <skill-dir>/blocks.py prune` once: it deletes the pages (brief and
+flow) of PRs already merged or closed, so the directory only holds the reviews still open.
 
 **Build it with a script, never by hand.** Write `<scratch>/build_<N>.py`, run it from the clone
 that holds the ref, and let `blocks.py` (next to this `SKILL.md`) produce every block: hunks come
