@@ -362,9 +362,11 @@ Nothing is posted at this stage. Replies leave in one batch at Step 5.
 
 **Write every approved draft the moment it's approved**, into
 `~/.claude/pr-feedback/<owner>-<repo>-<PR#>/` — `reply-<databaseId>.md` for an inline
-thread, `reply-review-<reviewId>.md` or `reply-comment-<id>.md` for a point coming
-from a review body or a general PR comment (those are posted with `gh pr comment`, so
-they need a name of their own). Set the point to `answered` / `reply: drafted` in
+thread, `reply-review-<reviewId>-<pointKey>.md` or `reply-comment-<id>.md` for a point
+coming from a review body or a general PR comment (those are posted with
+`gh pr comment`, so they need a name of their own). A review body usually carries
+several points: keep one file per point here, Step 5 merges them into a single
+comment. Set the point to `answered` / `reply: drafted` in
 `state.json`. Step 5 posts from those files; a long interactive loop is exactly the
 situation where a draft held only in context gets lost.
 
@@ -447,7 +449,12 @@ reply break an inline `-f body=`. Every reply starts with `🤖`. Mark the point
 `reply: posted` in `state.json` as each one lands.
 
 For points raised in a review body or a general PR comment (no thread), reply with
-`gh pr comment` — still prefixed `🤖`.
+`gh pr comment` — **one comment per review body (or per general PR comment), never one
+comment per point**. Merge the approved drafts of that review into a single body: one
+`🤖` at the very top, then one short section per point (a bold one-line label naming
+the ask, then the drafted answer without its own `🤖`), in the review's order. Write
+the merged body to `reply-review-<reviewId>.md` and post that file. Mark every point
+it covers `reply: posted` once it lands.
 
 Then resolve only the threads whose **fix was pushed**:
 
