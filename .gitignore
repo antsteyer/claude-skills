@@ -2,3 +2,6 @@ reports/
 __pycache__/
 synced/
 node_modules/
+browser-check/app-map.md
+team-workspace-css-mapping/
+browser-check/headless/local-config.mjs

@@ -3,8 +3,15 @@
 // a take script kept in the session scratchpad.
 import { chromium } from './node_modules/playwright-core/index.mjs'
 
+const { SUPER_ADMIN_EMAIL, SIGN_IN_PATH, USERS_INDEX_PATH, LOGIN_AS_PATH } = await import(
+  './local-config.mjs'
+).catch(() => {
+  throw new Error(
+    'Missing headless/local-config.mjs (gitignored): export SUPER_ADMIN_EMAIL, SIGN_IN_PATH, USERS_INDEX_PATH and LOGIN_AS_PATH',
+  )
+})
+
 export const BASE_URL = 'http://localhost'
-const SUPER_ADMIN_EMAIL = '<super admin test account>'
 const SYSTEM_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 export const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
@@ -34,14 +41,14 @@ export const signedInState = async ({ browser, impersonatedUuid = null }) => {
   if (impersonatedUuid) {
     await page.goto(`${BASE_URL}${USERS_INDEX_PATH}`, { waitUntil: 'domcontentloaded' })
     const status = await page.evaluate(
-      uuid =>
+      ({ uuid, loginAsPath }) =>
         fetch(loginAsPath, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user: { uuid }, meta: { admin_url: location.href } }),
         }).then(response => response.status),
-      impersonatedUuid,
+      { uuid: impersonatedUuid, loginAsPath: LOGIN_AS_PATH },
     )
 
     if (status !== 201) {

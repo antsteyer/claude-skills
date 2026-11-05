@@ -20,13 +20,15 @@ worktree, and problems are reported to the user without fixing anything.
 All user-facing text is in **French**.
 
 Companion files live next to this one:
-- `app-map.md` — URLs, the login-as shortcut, psql lookups and known fixtures. **Read it first**, and
-  enrich it at the end of the run (section 6).
+- `app-map.md` — gitignored local notes: accounts, URLs, the login-as shortcut, psql lookups and known
+  fixtures. **Read it first**, and enrich it at the end of the run (section 6). When it is missing,
+  say so and find the screens in the code and the fixtures with psql.
 - `a11y-audit.js` — a one-call accessibility audit of the current page state.
 - `headless/` — Playwright on the system Chrome, signed in as the super admin (optionally
   impersonating a user): `responsive.mjs` for the responsive pass, `headless.mjs` for the demo take
   and any scripted check. `playwright-core` is installed there (`bun install` in that directory if
-  `node_modules` is missing). Import the helpers by absolute path from a script kept in the session
+  `node_modules` is missing), and `local-config.mjs`, gitignored, holds the account and the app paths.
+  Import the helpers by absolute path from a script kept in the session
   scratchpad; run it with `node`, write its output to a scratchpad file and read the `RESULT{json}` line.
 
 **Which browser for what.** Claude in Chrome for the exploratory part: reaching the screens, walking
@@ -104,7 +106,7 @@ it is, is fine.
 - Load the `claude-in-chrome` skill, work in new tabs of the MCP tab group only, never in the
   user's tabs.
 - The user is usually logged in. Otherwise log in on `localhost` only with the super admin test
-  account `<super admin test account>`.
+  account of `app-map.md`.
 - **Other roles** — a workflow a super admin cannot reach (participant, team leader, jury, mentor,
   evaluator…) is tested by impersonating a real user of that role with « Login as ». Use the API
   shortcut of `app-map.md` (one call with the uuid from psql); the UI path (users index → row
@@ -222,7 +224,8 @@ GIF explicitly: convert the MP4 with ffmpeg (`fps=10,scale=960:-1`, palettegen/p
    (exit code 143 on their background tasks is the expected kill).
 2. **Enrich `app-map.md`** with what this run discovered: new URLs, a flow that worked, a fallback
    that was needed, a reusable psql query, a fixture worth keeping. Fix any entry that turned out
-   wrong. Stable facts only.
+   wrong. Stable facts only. App routes and local data stay in that gitignored file, never in the
+   tracked files of this skill.
 3. Report in a few lines: what was tested, the screenshots, what the change got wrong, the
    pre-existing problems, what could not be tested and why. With `--demo`: the full path of the MP4,
    its duration and size, what it shows step by step, the data the take created, changed or
