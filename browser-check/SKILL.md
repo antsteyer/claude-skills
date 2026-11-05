@@ -8,7 +8,7 @@ description: >-
   /review-requested-prs (4d-bis); also usable on its own when the user says
   "teste la feature dans Chrome", "vérifie dans le navigateur", or
   "/browser-check [PR# | ticket] [--demo]". With --demo (or "avec une démo"),
-  also delivers a GIF of the complete feature at the end of the tests.
+  also delivers a video (MP4) of the complete feature at the end of the tests.
 ---
 
 # /browser-check — End-to-end check in Chrome
@@ -19,14 +19,25 @@ worktree, and problems are reported to the user without fixing anything.
 
 All user-facing text is in **French**.
 
-Two companion files live next to this one:
+Companion files live next to this one:
 - `app-map.md` — URLs, the login-as shortcut, psql lookups and known fixtures. **Read it first**, and
   enrich it at the end of the run (section 6).
 - `a11y-audit.js` — a one-call accessibility audit of the current page state.
+- `headless/` — Playwright on the system Chrome, signed in as the super admin (optionally
+  impersonating a user): `responsive.mjs` for the responsive pass, `headless.mjs` for the demo take
+  and any scripted check. `playwright-core` is installed there (`bun install` in that directory if
+  `node_modules` is missing). Import the helpers by absolute path from a script kept in the session
+  scratchpad; run it with `node`, write its output to a scratchpad file and read the `RESULT{json}` line.
+
+**Which browser for what.** Claude in Chrome for the exploratory part: reaching the screens, walking
+the acceptance criteria, the keyboard and screen reader passes — the user's session is already
+signed in and they can follow along. Headless Playwright for what is replayed or measured: the
+responsive pass, before/after measurements around a fix, several roles side by side, and the demo
+video. It never touches the user's window or session.
 
 ## Options
 
-- `--demo` — once the checks are done, record a GIF of the complete feature as a deliverable
+- `--demo` — once the checks are done, record a video of the complete feature as a deliverable
   (section 5bis). Also triggered by « avec une démo », « fais-moi une vidéo / un gif ». Off by default.
 
 ## When to run it
@@ -126,22 +137,22 @@ it is, is fine.
    of the `WindowWidth` mixin (`isMobileSize` < 768, `isTabletSize` < 992). Check three widths: 375
    (mobile), 800 (JS tablet, SCSS `md`) and 1280 (desktop). Add the exact edge of any breakpoint the
    diff uses (`d-md-*`, `col-lg-*`, `media-breakpoint-*`, `isMobileSize`), on both sides of it.
-   - Before the first resize, record `outerWidth` / `outerHeight` / `innerWidth` / `document.visibilityState`
-     with `javascript_tool`. `resize_window` reports success but does nothing while the tab is hidden
-     (another tab active in its window, window minimised): with `visibilityState` not `visible`, ask the
-     user to click the tab, then retry.
-   - `resize_window` sizes the window, not the viewport: pass the target plus `outerWidth - innerWidth`
-     (56 px in the first run), then read `window.innerWidth` and trust that
-     value.
-   - Chrome does not shrink a window below a ~570 px viewport: 375 goes through the headless fallback
-     of `app-map.md` with `viewport`. A 570–767 viewport still covers the JS mobile branch, not the
-     SCSS `xs` one.
+   - Run it headless, never by resizing the user's window:
+     `node ~/.claude/skills/browser-check/headless/responsive.mjs --url <path> --out <scratchpad dir> [--widths 375,800,1280,<edges>] [--as <user uuid>]`.
+     Each width is a fresh load at that viewport (which also catches the SSR → `mounted` flash
+     below). It reports, per width, `innerWidth`, the final path (a redirect shows there),
+     `horizontalScroll`, the first elements sticking out of the viewport, the console problems and
+     a screenshot path: read the screenshots, then judge.
+   - A state reached by interaction (open menu, collapsed panel) needs a short script on
+     `headless.mjs` instead: `signedInState`, a context with the `viewport`, the actions, then the
+     same measurements.
    - At each width: no horizontal scroll
      (`document.documentElement.scrollWidth > document.documentElement.clientWidth`), no clipped or
      overlapping text, controls still reachable, overlays fitting in the viewport. One screenshot per
      width.
    - The `WindowWidth` mixin is `null` during SSR and until `mounted`: a mobile screen first renders the
-     desktop branch. Reload at mobile width to catch a visible flash, not only a live resize.
+     desktop branch: `responsive.mjs` loads each width fresh, so a visible flash shows on its
+     screenshot; also look for it when a live resize matters.
 6. **SSR** — only when the screen is server-rendered: a route outside `UserAuthenticationGuard` (it wraps
    its children in `<ClientOnly>`, so nothing under it renders on the server), a component of
    `MainLayout` outside `<ClientOnly>`, or a diff touching `serverPrefetch`, `entry-server.ts`,
@@ -175,40 +186,44 @@ it is, is fine.
 - One `javascript_tool` call answers more than several screenshots: prefer it for states and
   attributes.
 
-## 5bis. Demo GIF (`--demo` only)
+## 5bis. Demo video (`--demo` only)
 
 A separate take after the checks, never mixed with them: the checks need audits, `javascript_tool`
-calls and retries that would clutter the video.
+calls and retries that would clutter the video. Recorded headless with Playwright, not with
+`gif_creator` (50-frame cap, Chrome's Downloads folder out of reach). Only when the user asks for a
+GIF explicitly: convert the MP4 with ffmpeg (`fps=10,scale=960:-1`, palettegen/paletteuse).
 
 1. **Script** — the nominal path of the feature from its entry screen to its visible outcome
    (e.g. open the menu → action → modal → confirm → redirect or success toast). Add the one variant
-   that matters only when it is the point of the feature (e.g. an empty state). Keep it under ~20
-   actions: `gif_creator` stops at 50 frames.
+   that matters only when it is the point of the feature (e.g. an empty state). Pause ~1–2 s on each
+   state worth seeing, and hover what carries a tooltip.
 2. **Data** — when the path is irreversible (delete, send, submit…), create a dedicated local fixture
    for the take (same role, same state) rather than reusing the one the checks used, and ask before
    touching existing data, as in section 4. Write down what the take deletes or changes for the
-   report.
-3. **Stage** — impersonate the role, navigate to the entry screen and wait until it is fully loaded
-   (no skeleton) **before** starting the recording, so the first frame is meaningful.
-4. **Record** — `gif_creator` `start_recording`, then one screenshot right away (first frame), then
-   the script in `browser_batch` with a short `wait` (~1 s) and a screenshot after each step that
-   changes the screen; `find` refs rather than coordinates. Two screenshots on the final state, then
-   `stop_recording`.
-5. **Export** — `export` with `download: true`, `filename: "<feature>_demo.gif"` (snake_case, named
-   after the feature, not the branch) and `options: { showWatermark: false }`. Chrome saves it to the
-   user's Downloads folder, which the sandbox cannot read: report the filename, frame count and size
-   from the export result, and do not try to open the file.
-6. A failed or confusing take → `clear`, reset the data, record again. Never deliver a take that shows
-   an error the feature did not intend.
+   report. A state that has no local data (e.g. unread counters) can be injected in the Pinia state
+   through `page.evaluate`; say so in the report.
+3. **Record** — a take script in the scratchpad: `launchBrowser`, `signedInState({ browser,
+   impersonatedUuid })`, then `recordTake({ browser, storageState, out, take })`. Inside `take`, go to
+   the entry screen, wait until it is fully loaded (no skeleton), call `markStart()`, then drive it
+   with `moveTo` (the pointer glides, and a fake cursor is drawn since Playwright videos show none)
+   and `page.locator(...).click()`. Prefer SPA links for in-take navigation: a legacy link reloads the
+   page and loses the injected state.
+4. **Export** — cut the page load and convert:
+   `ffmpeg -y -loglevel error -ss <trimStart> -i <videoPath> -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart <feature>_demo.mp4`
+   (snake_case, named after the feature, not the branch), in the scratchpad. Check it before
+   delivering: a contact sheet (`-vf "fps=1/2,scale=320:-1,tile=6x2" -frames:v 1 contact.png`) read
+   as an image shows each step; zoom on a key moment with a crop.
+5. A failed or confusing take → reset the data, record again. Never deliver a take that shows an
+   error the feature did not intend.
 
 ## 6. Wrap up
 
-1. Return to the super admin if impersonating, put the window back to the size recorded before
-   the responsive pass, close my tabs, stop the servers I started (exit code
-   143 on their background tasks is the expected kill).
+1. Return to the super admin if impersonating in Chrome, close my tabs, stop the servers I started
+   (exit code 143 on their background tasks is the expected kill).
 2. **Enrich `app-map.md`** with what this run discovered: new URLs, a flow that worked, a fallback
    that was needed, a reusable psql query, a fixture worth keeping. Fix any entry that turned out
    wrong. Stable facts only.
 3. Report in a few lines: what was tested, the screenshots, what the change got wrong, the
-   pre-existing problems, what could not be tested and why. With `--demo`: the GIF filename, its
-   frame count and size, what it shows step by step, and the data the take created or changed.
+   pre-existing problems, what could not be tested and why. With `--demo`: the full path of the MP4,
+   its duration and size, what it shows step by step, the data the take created, changed or
+   injected; offer to reveal it in the Finder (`open -R <path>`).

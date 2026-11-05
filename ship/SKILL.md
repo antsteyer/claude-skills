@@ -38,7 +38,7 @@ rewrites the entire codebase and is slow):
 bash ~/.claude/skills/_shared/format-files.sh
 ```
 
-With no argument it formats every changed and untracked file (eslint, stylelint,
+With no argument it formats every changed and untracked file (eslint, stylelint, the strict eslint config when the repo has one,
 then prettier, through `bunx`/`yarn`/`npx` per the lockfile). A non-zero exit
 means an error the tools cannot fix — fix it before going further. Never rebuild
 this as a `git diff --name-only | xargs …` one-liner: the rtk hook rewrites that
@@ -61,13 +61,18 @@ hooks=$(git config core.hooksPath || echo "$(git rev-parse --git-common-dir)/hoo
 ```
 
 - **Hook present** → skip `lint`.
-- **No hook** → run the lint script now (`bun run lint` / `yarn lint` / `npm run lint`):
-  nothing else will lint this change before it reaches the remote.
+- **No hook** → nothing else will lint this change before it reaches the remote, and the
+  format step only covered the uncommitted files. List the files the branch already
+  committed (`git diff --name-only --diff-filter=d "$(git merge-base HEAD origin/master)"...HEAD`)
+  and pass the `.ts` / `.js` / `.vue` / `.scss` ones to
+  `bash ~/.claude/skills/_shared/format-files.sh <files...>`. Run the whole-project lint script
+  (`bun run lint` / `yarn lint` / `npm run lint`) only when that list contains a lint config
+  (`eslint.config.*`, `.stylelintrc*`, `.prettierrc*`), like the pre-push hook does.
 
 If any `.spec.ts` / `.spec.js` file is in the diff, run the affected tests:
 
 ```bash
-npx vitest run <path/to/spec.ts> [...]
+bun run test:unit <path/to/spec.ts> [...]
 ```
 
 **If ANY check fails: report the failure to the user and STOP. Do not proceed.**
@@ -106,7 +111,7 @@ so the user can see what landed without being prompted.
 ## Step 4 — Push
 
 1. Confirm the branch name and intended remote (typically `origin`).
-2. Run `git push` (add `-u origin <branch>` if no upstream is set). A local
+2. Run `git push -u origin "$(git branch --show-current)"` — never a bare `git push`. A local
    `pre-push` hook, when present (Step 1), lints the pushed changes here; if it blocks
    the push, report the failure and stop.
 
@@ -128,12 +133,12 @@ gh pr view --json url,number,state 2>/dev/null
 Part of `/ship`, not a follow-up to suggest. Do it without being asked, in the
 same turn as the push.
 
-1. Fetch the unresolved threads (`isResolved == false`) via GraphQL, keeping
-   each thread's `id` and its first comment's `databaseId`.
+1. Fetch the threads with `bash ~/.claude/skills/_shared/pr-threads.sh <owner> <repo> <PR#>`
+   and keep the unresolved ones (`isResolved == false`), with each thread's `id` and its
+   first comment's `databaseId`.
 2. For every thread the pushed commits address, reply **in-thread** with
-   `gh api repos/<owner>/<repo>/pulls/<PR#>/comments -f body="..." -F in_reply_to=<databaseId>`
-   — never a top-level comment. Prefix the body with `🤖`. Use
-   `--body-file`/`"$(cat file)"` rather than inline escapes.
+   `gh api repos/<owner>/<repo>/pulls/<PR#>/comments -F body=@<file> -F in_reply_to=<databaseId>`
+   — never a top-level comment. Prefix the body with `🤖`; write the file without escaping.
 3. Resolve each of those threads:
    `gh api graphql -f query='mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }' -f threadId=<id>`
 

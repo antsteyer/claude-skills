@@ -86,10 +86,12 @@ Then `AskUserQuestion`: « Le plan te convient ? » with **Approuvé** / **À aj
 
 Follow the approved plan. Minimal changes, no unrelated refactor.
 
-- **Before writing or editing any `.spec.ts`**, re-read the "Spec Conventions" section of the global CLAUDE.md and the spec-related `feedback_*` memories (tooltips, grouped expects, router in `buildComponent`, mocks…). These are the rules most often corrected on this skill.
+- **Before writing or editing any `.spec.ts`**, load the `writing-specs` skill. Its rules are the ones most often corrected on this skill.
 - Update the matching `.spec.ts` alongside every `.vue` / `.ts` change.
 - Translations: only in the agorize-core worktree **of this ticket** (`ID`, or `BACK_ID` when the back ticket carries the core branch), `en.yml` + `fr.yml`, reuse existing keys first, then run `ac_t` once. Never write into the core worktree of another ticket, not even the parent the front branch is stacked on. No worktree for this ticket → stop and propose creating one stacked on the parent's core branch (`/worktree <ID>`, « Front + core »); don't create it without approval.
 - Shared serializer, utility or module → stop, list the impact, confirm before editing.
+- **Sibling parity** — for every symbol you add or wire (`canUnreportX`, a prop, an endpoint, a `businessType` override), grep its siblings (`canReportX`, the other `businessType` values, the same action in neighbouring components) and handle them the same way, or list why not in the summary.
+- **Figma parity** — when `FIGMA_LINKS` is set, the summary carries a table per changed component: property (padding, border, radius, colour, typography, label) | Figma value | code value. A gap you cannot close is flagged, not shipped.
 
 ### Step-by-step mode
 
@@ -102,7 +104,7 @@ When the plan was split, at the end of each step:
 
 ## Step 6 — Tests
 
-- Run each changed spec **once** after editing: `npx vitest run <path>`. After a fix, re-run only the failing spec.
+- Run each changed spec **once** after editing: `bun run test:unit <path>`. After a fix, re-run only the failing spec.
 - At the end, run only the specs not already green since their last edit — never re-run a green spec "to confirm".
 - **Never** run the full suite, `bun format` or `bun run lint` — the scope is always enumerable by grep (store name, component name, endpoint).
 - `bun run typecheck` only when a signature, interface or exported symbol changes across files.

@@ -11,6 +11,10 @@ description: >-
 
 Recompile the production assets for agorize-core. This requires temporarily patching `config/database.yml` so the `production:` environment points to the local development database (required by the precompile script), then reverting the file afterwards.
 
+### Step 0 — Check the working directory
+
+Run `git rev-parse --git-dir`: if it does not contain `/worktrees/`, the current directory is the main agorize-core checkout. Stop and propose `/worktree` — never patch `config/database.yml` or compile in the main checkout.
+
 ### Step 1 — Patch database.yml
 
 Read `config/database.yml` and replace the `production:` section so it is identical to the `development:` section.
@@ -52,13 +56,12 @@ production:
   url: <%= ENV['DATABASE_URL'] %>
 ```
 
-### Step 4 — Commit the compiled assets
+### Step 4 — Stage the compiled assets
 
-Stage and commit all changes in `public/assets/` and `public/packs/` with the message `compile assets`.
+Stage the changes in `public/assets/` and `public/packs/`, show `git status --short`, then propose the commit message `compile assets` and wait for an explicit go-ahead — never commit on your own.
 
 ```bash
 git add public/assets/ public/packs/
-git commit -m "compile assets"
 ```
 
 ## Important notes

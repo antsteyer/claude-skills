@@ -146,7 +146,10 @@ choices made: simplicity, the "be clear, not clever" rule, security, etc. The li
 things not to overlook, not the scope of the review.
 
 ### 4c. Comment style
-**French**, constructive/mentoring, always explain the **why**.
+**French**, constructive/mentoring, always explain the **why**. Short, direct comments (1-2
+sentences), `suggestion` blocks for exact changes. Cover logic, naming, test structure, CSS
+(Bootstrap 5 utilities, no inline style), accessibility, simplification with existing helpers,
+`eslint-disable` reasons, interface placement and naming.
 **One thread per problem**; order them functional bugs and spec gaps (4a-bis: missing criterion,
 behaviour differing from the ticket, design gap) first, then contract/data, then tests and
 conventions. A spec gap anchors on the line that implements the criterion wrongly; a missing one goes
@@ -265,6 +268,9 @@ and that re-running without `dry-run` is what would actually create the pending 
 
 Everything above leaves reviews **PENDING** — never submit on your own initiative. When, and only
 when, I explicitly ask you to publish / submit / send the review, do this:
+
+   **Self-review** (I am the PR author, Step 4a): submit as `COMMENT` without asking — GitHub
+   refuses the other events on one's own PR. Skip item 1.
 
 1. **Ask me the review type first — always, before submitting anything.** A submitted review is
    **immutable**: its event (`COMMENT` / `REQUEST_CHANGES` / `APPROVE`) cannot be changed afterward, so

@@ -163,13 +163,13 @@ Scale to what the conflicts touched:
   resolved (never while a fix is still pending: a check started too early has
   to be rerun).
   - Conflicted or renamed-around `.ts`/`.vue` → run their specs:
-    `npx vitest run <specs>`.
+    `bun run test:unit <specs>`.
   - `bun run typecheck` only when a hand-resolved file is a `.ts`/`.vue` outside
     `tests/`, or when the upstream diff (`git diff ORIG_HEAD...origin/<base> --stat`)
     touches `src/interfaces/`, `src/stores/` or an exported symbol. Conflicts
     limited to specs, mocks or template markup do not need it.
   - When both apply, run them in parallel in a single call, not one after the other:
-    `bun run typecheck > <scratchpad>/tc.log 2>&1 & npx vitest run <specs> 2>&1 | tail -15; wait; tail -15 <scratchpad>/tc.log`.
+    `bun run typecheck > <scratchpad>/tc.log 2>&1 & bun run test:unit <specs> 2>&1 | tail -15; wait; tail -15 <scratchpad>/tc.log`.
   - Files resolved by hand are formatted in Step 3, before their `git add`
     (`_shared/format-files.sh <file>`), so the replayed commit already carries
     the formatted version.

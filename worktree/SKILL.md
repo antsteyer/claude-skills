@@ -95,18 +95,21 @@ avoids a `Bundler::RubyVersionMismatch` when running `bundle exec` (this bites
 agorize-core in particular). If no `.env*` or `.tool-versions` files exist,
 skip silently.
 
-**agorize-core only — pin Ruby 3.4.9.** `origin/master`'s `Gemfile` requires
-`ruby '3.4.9'`, but the main repo's copied `.tool-versions` may still be on an
-older Ruby (e.g. `3.1.6` if it's checked out on a pre-bump branch). Always
-overwrite the worktree's Ruby to 3.4.9 so `bundle` and `ac_t` resolve correctly:
+**agorize-core only — pin the Gemfile's Ruby.** The main repo's copied
+`.tool-versions` may be on another Ruby than the one the worktree's `Gemfile`
+requires (`ruby 'X.Y.Z'`), e.g. when the main checkout is on a pre-bump branch.
+Always overwrite the worktree's Ruby with the `Gemfile`'s so `bundle` and `ac_t`
+resolve correctly:
 
 ```bash
-(cd ../agorize-core.worktrees/<branch-name> && asdf set ruby 3.4.9)
+(cd ../agorize-core.worktrees/<branch-name> && \
+  RUBY_VERSION=$(sed -nE "s/^ruby ['\"]([^'\"]+)['\"].*/\1/p" Gemfile) && \
+  echo "$RUBY_VERSION" && asdf set ruby "$RUBY_VERSION")
 ```
 
-If Ruby 3.4.9 isn't installed yet, install it first: `asdf plugin update ruby
-&& asdf install ruby 3.4.9` (the ruby-build plugin must be current or 3.4.9
-reports "Version not found").
+If that Ruby isn't installed yet (`asdf list ruby`), install it first:
+`asdf plugin update ruby && asdf install ruby <version>` (the ruby-build plugin
+must be current or a recent version reports "Version not found").
 
 ### Step 6: Install dependencies
 
@@ -123,7 +126,7 @@ The install commands depend on the repo.
 `ASDF_NODEJS_VERSION` is forced on the command because the shell exports its own value, which
 overrides `.tool-versions` and runs `yarn install` on a Node the core does not support.
 
-Use a generous timeout (e.g. `timeout: 600000`) — `bundle install` and `yarn install` can each take several minutes on a cold worktree. Run in the foreground so the user sees completion. If Step 5 found no `.tool-versions` to copy (e.g. the main repo lacks one), pin manually first with `asdf set ruby 3.4.9 && asdf set nodejs 16.18.1`.
+Use a generous timeout (e.g. `timeout: 600000`) — `bundle install` and `yarn install` can each take several minutes on a cold worktree. Run in the foreground so the user sees completion. If Step 5 found no `.tool-versions` to copy (e.g. the main repo lacks one), pin manually first with `asdf set ruby <Gemfile's version> && asdf set nodejs 16.18.1`.
 
 **Any other repo** (e.g. agorize-front) — run `bun install`:
 

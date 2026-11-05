@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Format only the given files, or every changed/untracked file when none is given.
+# Lint and format only the given files, or every changed/untracked file when none is given.
 # Run it as `bash ~/.claude/skills/_shared/format-files.sh [files...]`: the rtk hook
 # leaves it untouched and bash word-splits the file list, unlike a zsh one-liner.
 set -euo pipefail
@@ -39,6 +39,13 @@ if [ "${#code[@]}" -gt 0 ]; then
 fi
 if [ "${#styles[@]}" -gt 0 ]; then
   "${runner[@]}" stylelint --fix "${styles[@]}" || status=1
+fi
+# The strict config also flags legacy code the project says to leave as is:
+# its errors are reported for the lines the caller wrote, never fail the run.
+if [ "${#code[@]}" -gt 0 ] && grep -q '"lint:strict"' package.json 2>/dev/null; then
+  if ! "${runner[@]}" eslint -c eslint.strict.config.ts --fix "${code[@]}"; then
+    printf 'Strict lint errors above: fix those on the code you wrote, leave the legacy.\n'
+  fi
 fi
 if [ "$(( ${#code[@]} + ${#styles[@]} ))" -gt 0 ]; then
   "${runner[@]}" prettier --write --log-level warn "${code[@]+"${code[@]}"}" "${styles[@]+"${styles[@]}"}" || status=1

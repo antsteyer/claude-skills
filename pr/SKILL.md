@@ -109,13 +109,12 @@ Jira: https://agorize.atlassian.net/browse/<JIRA_TICKET>
 
 ### Step 5: Create the PR
 
+Write the generated description, without escaping, to `pr-body.md` in the session scratchpad, then:
+
 ```bash
 gh pr create \
   --title "<title from latest commit or summary>" \
-  --body "$(cat <<'EOF'
-<generated description>
-EOF
-)" \
+  --body-file <scratchpad>/pr-body.md \
   --base <BASE> \
   --assignee @me
 ```
