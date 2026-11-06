@@ -145,16 +145,37 @@ Analyse the PR as if a junior wrote it. Do a real, thorough review and **also** 
 choices made: simplicity, the "be clear, not clever" rule, security, etc. The list is a reminder of
 things not to overlook, not the scope of the review.
 
+### 4b-bis. Check the test coverage of what the PR introduces
+A green CI says nothing about what was never tested. This is a reading pass over the PR's head, no
+coverage tool to run.
+- **List the behaviours the PR introduces or changes**: the criteria mapped in 4a-bis, plus what the
+  diff adds beyond them — new branches, error paths, guards and permissions, edge cases, store
+  actions and getters, scopes, services, jobs. A bug fix counts as a behaviour: it needs a test that
+  fails without the fix.
+- **Find the spec that exercises each one**, in the PR's files and in the existing specs
+  (`git grep` on the PR's ref), and cite it as `path:line`. Read the assertion: a spec that runs the
+  code without asserting the behaviour does not cover it, and neither does one that mocks away the
+  logic under test.
+- **Mark each behaviour** covered, partially covered (happy path only, one role out of several) or
+  not covered. Before calling something untested in a split front/back ticket, check the companion PR:
+  a behaviour owned by the other repo is tested there.
+- **Each gap is an actionable comment** anchored on the untested line, naming the missing case; on
+  agorize-front, a proposed test follows the `writing-specs` conventions. Several gaps in one file go
+  into one thread.
+- **Not a gap**: pure styling, copy, a rename or a move with no behaviour change, and a `<template>`
+  with no logic of its own.
+
 ### 4c. Comment style
 **French**, constructive/mentoring, always explain the **why**. Short, direct comments (1-2
 sentences), `suggestion` blocks for exact changes. Cover logic, naming, test structure, CSS
 (Bootstrap 5 utilities, no inline style), accessibility, simplification with existing helpers,
 `eslint-disable` reasons, interface placement and naming.
 **One thread per problem**; order them functional bugs and spec gaps (4a-bis: missing criterion,
-behaviour differing from the ticket, design gap) first, then contract/data, then tests and
-conventions. A spec gap anchors on the line that implements the criterion wrongly; a missing one goes
+behaviour differing from the ticket, design gap) first, then contract/data, then tests (4b-bis:
+coverage gaps) and conventions. A spec gap anchors on the line that implements the criterion wrongly; a missing one goes
 in the body. The review body opens with a short spec section: the ticket and Figma links read,
-the criteria checked, and those left unverified with the reason. A PR rarely deserves more than ~10 inline comments — past that, group the minor
+the criteria checked, and those left unverified with the reason. A short coverage section follows it:
+the behaviours partially covered or not covered, or one line saying all are covered. A PR rarely deserves more than ~10 inline comments — past that, group the minor
 convention points into one comment or into the body. **Actionable only** — a decision to
 make, a test to add, a change to do, a point to confirm. **No purely positive comments**
 ("bon réflexe", "bien joué", "rien à changer") — these are request-changes reviews. Be concise;
@@ -250,9 +271,10 @@ working tree and current branch are exactly as they were before the run.
 
 ## Step 5 — Report back
 
-**Live mode** — a recap table: `Repo#PR | review id | PENDING | spec | test app | nb commentaires | points saillants`,
+**Live mode** — a recap table: `Repo#PR | review id | PENDING | spec | couverture | test app | nb commentaires | points saillants`,
 where `test app` is `ok`, the count of problems found in Chrome, or `non testé` with the reason;
-and `spec` names the ticket and Figma read (or `aucun ticket`) and the count of criteria unmet or unverified.
+`spec` names the ticket and Figma read (or `aucun ticket`) and the count of criteria unmet or unverified;
+and `couverture` is `ok` or the count of behaviours partially covered or not covered (4b-bis).
 For each review, verify `state=PENDING` and `submitted_at=null`. Remind me that a pending review is
 visible **only to me** (with a "Pending" badge) until I click **Submit review** on the UI, and that
 the `GET /pulls/<N>/comments` endpoint does **not** list pending comments (use
